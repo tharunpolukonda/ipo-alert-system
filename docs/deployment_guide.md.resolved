@@ -1,0 +1,46 @@
+# 🚀 HooxIPO Deployment Guide (Vercel + GitHub)
+
+To deploy your application, you should create **two separate** projects on Vercel from the same GitHub repository. This ensures the Frontend (Vite) and Backend (FastAPI) are handled correctly.
+
+## 1. Prerequisites
+1.  Push your entire `ipo_tracker_alert` folder to a **GitHub repository**.
+2.  Log in to [Vercel](https://vercel.com).
+
+---
+
+## 2. Deploying the Backend
+1.  Click **"Add New..."** > **Project** on your Vercel dashboard.
+2.  Select the **`ipo-alert-system`** repository (⚠️ **IMPORTANT**: Do NOT select `stock-alert-system` as it contains old Next.js code).
+3.  **Project Name**: `hoox-ipo-backend`
+4.  **Root Directory**: Click "Edit" and select the `backend` folder.
+5.  **Framework Preset**: Select **"Other"**.
+6.  **Environment Variables**:
+    *   `SUPABASE_URL`: (Copy from your backend [.env](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/backend/.env))
+    *   `SUPABASE_SERVICE_KEY`: (Copy from your backend [.env](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/backend/.env))
+    *   `DISCORD_WEBHOOK_URL`: (Optional)
+7.  Click **Deploy**.
+8.  **Important**: Once deployed, copy the **Deployment URL** (e.g., `https://hoox-ipo-backend.vercel.app`).
+
+---
+
+## 3. Deploying the Frontend
+1.  Go back to your Vercel Dashboard and click **"Add New..."** > **Project**.
+2.  Select the **same GitHub repository** again.
+3.  **Project Name**: `hoox-ipo-frontend`
+4.  **Root Directory**: Click "Edit" and select the `frontend` folder.
+5.  **Framework Preset**: Select **"Vite"** (Vercel should detect this automatically).
+6.  **Environment Variables**:
+    *   `VITE_API_BASE_URL`: Paste the **Backend Deployment URL** you copied in Step 2.
+    *   `VITE_SUPABASE_URL`: (Copy from your [frontend/.env.local](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/frontend/.env.local))
+    *   `VITE_SUPABASE_ANON_KEY`: (Copy from your [frontend/.env.local](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/frontend/.env.local))
+7.  Click **Deploy**.
+
+---
+
+## 4. Final Verification
+*   Open your **Frontend** URL.
+*   Login/Signup to verify the connection to the Backend.
+*   Check the **Profited/Losted** and **Alerts** pages to ensure data is flowing.
+
+> [!TIP]
+> Whenever you push changes to GitHub, Vercel will automatically redeploy both the Frontend and Backend for you!
