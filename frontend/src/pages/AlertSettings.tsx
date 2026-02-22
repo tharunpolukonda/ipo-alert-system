@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
-    ArrowLeft, Bell, Plus, Trash2, Pencil, Check, X, Shield, Building2, User
+    ArrowLeft, Bell, Plus, Trash2, Pencil, Check, X, Shield, Building2, User, LogOut
 } from 'lucide-react'
 import { alertRulesApi, sectorsApi, AlertRule, Sector } from '../api'
+import { useAuth } from '../contexts/AuthContext'
 import Toast from '../components/Toast'
 
 interface ToastState { message: string; type: 'success' | 'error' | 'info'; id: number }
@@ -202,6 +203,7 @@ function AddCompanyRuleModal({
 
 // ══ Main AlertSettings page ═══════════════════════════════════════
 export default function AlertSettings() {
+    const { signOut } = useAuth()
     const [rules, setRules] = useState<AlertRule[]>([])
     const [sectors, setSectors] = useState<Sector[]>([])
     const [loading, setLoading] = useState(true)
