@@ -1,0 +1,133 @@
+# IPO Tracker/Alert — Walkthrough
+
+## What Was Built
+
+A full-stack IPO tracking and alert application with:
+- React + Vite TypeScript frontend (dark, premium UI)
+- FastAPI Python backend with Firestore database
+- Groww page scraping via Playwright
+- CMP scraping from Screener.in
+- Discord webhook alerts
+- GitHub Actions cron job (2PM IST Mon–Fri)
+- Vercel deployment ready
+
+---
+
+## Project Structure
+
+```
+ipo_tracker_alert/
+├── frontend/src/
+│   ├── App.tsx                    # Router
+│   ├── api.ts                     # Typed API client
+│   ├── index.css                  # Premium dark design system
+│   ├── pages/
+│   │   ├── Dashboard.tsx          # Main page
+│   │   └── AlertSettings.tsx      # Alert rules page
+│   └── components/
+│       ├── AddIpoModal.tsx         # Multi-step IPO form + scraping
+│       ├── AddSectorModal.tsx      # Add sector form
+│       ├── CompanyCard.tsx         # Portfolio company card
+│       └── Toast.tsx               # Notification component
+├── backend/
+│   ├── main.py                    # FastAPI with all endpoints
+│   ├── firebase_client.py         # Firestore connection
+│   ├── alert_engine.py            # Alert logic
+│   ├── discord_notifier.py        # Discord webhook
+│   ├── requirements.txt
+│   └── scrapers/
+│       ├── groww_scraper.py       # Playwright-based Groww scraper
+│       └── screener_scraper.py    # Screener.in CMP scraper
+├── .github/workflows/cron_alert.yml  # Daily cron job
+├── vercel.json                    # Deployment config
+├── firebase_setup.md              # Step-by-step setup guide ⭐
+└── .env.example                   # Env variable template
+```
+
+---
+
+## Key Features
+
+### Dashboard Page
+- Portfolio company cards with CMP, invested amount, current value, % change (green/red)
+- Total portfolio summary (Total Invested, Current Value, Overall % Change)
+- Toggle between Portfolio view (cards) and All IPOs (table)
+- "Add IPO" → 2-step modal: form → Groww scrape → editable fields → submit
+- "Add Sector" → quick modal
+- "Alert Settings" → navigation button
+
+### Add IPO Flow
+1. Enter company name, sector, portfolio status (No. of shares + buy price if portfolio=Yes), Groww link
+2. Click "Proceed" → auto-scrapes: Listed On, Issue Price, Listing Price, Issue Size, QIB/NII/RII/Total subscription rates
+3. Review/edit all scraped values
+4. Click "Submit" → saved to Firestore
+
+### Alert Settings Page
+- **Base Rule**: Default ±15% gain/loss threshold for all companies
+- **Sector Rules**: Override base rule for specific sectors
+- **Company Rules**: Highest priority, overrides sector and base rules
+- All rules have inline edit and delete with icon buttons
+
+### Alert Logic
+- Calculates `%Issue = (CMP - IssuePrice) * 100 / IssuePrice`
+- Calculates `%Listing = (CMP - ListingPrice) * 100 / ListingPrice`
+- Triggers if either crosses the applicable gain OR loss threshold
+- Sends rich Discord embeds with all details
+
+---
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/health` | Health check |
+| GET/POST | `/api/sectors` | List/create sectors |
+| DELETE | `/api/sectors/{id}` | Delete sector |
+| GET/POST | `/api/ipos` | List/create IPOs |
+| PUT | `/api/ipos/{id}` | Update IPO |
+| DELETE | `/api/ipos/{id}` | Delete IPO |
+| POST | `/api/scrape/groww` | Scrape Groww URL |
+| GET | `/api/scrape/cmp/{name}` | Get CMP from Screener |
+| GET/POST | `/api/alert-rules` | List/create rules |
+| PUT/DELETE | `/api/alert-rules/{id}` | Update/delete rule |
+| POST | `/api/cron/check-alerts` | Run alert check (cron) |
+| GET | `/api/portfolio/summary` | Portfolio with live CMP |
+
+---
+
+## Local Development
+
+**Step 1:** Set up `.env` in project root (copy from [.env.example](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/.env.example))
+
+**Step 2:** Install backend
+```bash
+cd backend
+pip install -r requirements.txt
+playwright install chromium
+```
+
+**Step 3:** Run backend
+```bash
+cd backend
+uvicorn main:app --reload --port 8000
+```
+
+**Step 4:** Run frontend
+```bash
+cd frontend
+npm install  # already done ✅
+npm run dev
+```
+
+Open `http://localhost:5173`
+
+---
+
+## Deployment (Vercel + GitHub)
+
+See [firebase_setup.md](file:///c:/Users/N.VenkataRaghuCharan/Desktop/Tharun/Projects/ipo_tracker_alert/firebase_setup.md) for the complete step-by-step deployment guide covering:
+- Firebase project + Firestore setup
+- Service account JSON generation
+- GitHub Secrets configuration
+- Vercel environment variables
+- Cron job verification

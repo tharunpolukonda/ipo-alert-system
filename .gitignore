@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+*.egg-info/
+dist/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+frontend/dist/
+frontend/.vite/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Vercel
+.vercel/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Local secrets (NEVER commit these!)
+.env.local
+.env.production
+service-account.json
+firebase-key.json

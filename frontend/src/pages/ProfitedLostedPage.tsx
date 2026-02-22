@@ -1,0 +1,220 @@
+import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, TrendingUp, TrendingDown, Filter, LayoutGrid, List as ListIcon } from 'lucide-react'
+import { iposApi, sectorsApi, portfolioApi, Ipo, Sector, PortfolioCompany } from '../api'
+
+export default function ProfitedLostedPage() {
+    const [allIpos, setAllIpos] = useState<Ipo[]>([])
+    const [sectors, setSectors] = useState<Sector[]>([])
+    const [portfolio, setPortfolio] = useState<PortfolioCompany[]>([])
+    const [loading, setLoading] = useState(true)
+
+    // Filters
+    const [viewMode, setViewMode] = useState<'all' | 'portfolio'>('all')
+    const [selectedSector, setSelectedSector] = useState<string>('all')
+    const [hasInteracted, setHasInteracted] = useState(false)
+
+    const fetchData = useCallback(async () => {
+        try {
+            const [secs, summary, all] = await Promise.all([
+                sectorsApi.list(),
+                portfolioApi.summary(),
+                iposApi.list(),
+            ])
+            setSectors(secs || [])
+            setPortfolio(summary?.companies || [])
+            setAllIpos(all || [])
+        } catch (err) {
+            console.error('Failed to fetch data', err)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => { fetchData() }, [fetchData])
+
+    // ── Calculate Gain/Loss for a company ──────────────────────────
+    const getChangeData = (item: Ipo | PortfolioCompany) => {
+        const issuePrice = 'issue_price' in item ? parseFloat(item.issue_price || '0') : item.buy_price
+        const cmp = 'cmp' in item ? (item.cmp || 0) : 0 // We might need to fetch CMP for non-portfolio items, 
+        // but usually the list view uses stored listing_price if listed.
+
+        // The user mentioned sorting by % change relative to %IP.
+        // We'll use (CMP - Issue Price) / Issue Price if CMP is available.
+        // If not, we use (Listing Price - Issue Price) / Issue Price as a historical profit measure.
+
+        const listingPrice = parseFloat(item.listing_price || '0')
+        const currentPrice = ('cmp' in item && item.cmp) ? item.cmp : listingPrice
+
+        if (!issuePrice || !currentPrice) return null
+
+        const pct = ((currentPrice - issuePrice) * 100 / issuePrice)
+        return { pct, diff: currentPrice - issuePrice }
+    }
+
+    // ── Filtering & Sorting ────────────────────────────────────────
+    const processLists = () => {
+        if (!hasInteracted) return { profited: [], losted: [] }
+
+        const baseList = viewMode === 'all' ? allIpos : portfolio
+        const sectorFiltered = selectedSector === 'all'
+            ? baseList
+            : baseList.filter(item => {
+                const sId = 'sector_id' in item ? item.sector_id : null
+                return sId === selectedSector
+            })
+
+        const withChanges = sectorFiltered.map(item => ({
+            item,
+            change: getChangeData(item)
+        })).filter(x => x.change !== null)
+
+        const profited = withChanges
+            .filter(x => x.change!.pct > 0)
+            .sort((a, b) => b.change!.pct - a.change!.pct) // Descending by %IP
+
+        const losted = withChanges
+            .filter(x => x.change!.pct < 0)
+            .sort((a, b) => a.change!.pct - b.change!.pct) // Most negative first
+
+        return { profited, losted }
+    }
+
+    const { profited, losted } = processLists()
+
+    return (
+        <div className="page">
+            <div className="glow-bg" />
+
+            <nav className="navbar" style={{ height: 72 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <Link to="/" className="btn btn-secondary btn-sm" style={{ padding: '8px', background: '#000', borderColor: 'var(--border)' }}>
+                        <ArrowLeft size={20} color="var(--accent-blue)" />
+                    </Link>
+                    <img
+                        src="/assets/hoox_logo_premium_1771778134217.png"
+                        alt="Hoox"
+                        style={{ width: 44, height: 'auto' }}
+                    />
+                </div>
+                <div style={{ display: 'flex', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                        <Filter size={14} color="var(--accent-blue)" />
+                        <select
+                            className="form-select"
+                            style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                            value={viewMode}
+                            onChange={(e) => { setViewMode(e.target.value as any); setHasInteracted(true) }}
+                        >
+                            <option value="all">🌐 All IPOs</option>
+                            <option value="portfolio">💼 Portfolio</option>
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                        <LayoutGrid size={14} color="var(--accent-purple)" />
+                        <select
+                            className="form-select"
+                            style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                            value={selectedSector}
+                            onChange={(e) => { setSelectedSector(e.target.value); setHasInteracted(true) }}
+                        >
+                            <option value="all">📁 All Sectors</option>
+                            {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </nav>
+
+            <div className="page-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, padding: '24px 40px' }}>
+
+                {/* Profited Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ padding: '12px 20px', borderRadius: 12, background: 'var(--success-bg)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <TrendingUp size={20} color="var(--success)" />
+                        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)', margin: 0 }}>PROFITED LIST</h2>
+                        <span style={{ marginLeft: 'auto', background: 'var(--success)', color: 'var(--bg-primary)', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                            {profited.length}
+                        </span>
+                    </div>
+
+                    {!hasInteracted ? (
+                        <div className="empty-state" style={{ height: 300 }}>
+                            <Filter size={40} />
+                            <p>Select a filter to view profited companies</p>
+                        </div>
+                    ) : profited.length === 0 ? (
+                        <div className="empty-state" style={{ height: 300 }}>
+                            <p>No profited companies found</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {profited.map(({ item, change }) => (
+                                <div key={item.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: 16 }}>{item.company_name}</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            Issue: ₹{'issue_price' in item ? item.issue_price : item.buy_price}
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: 18 }}>
+                                            +{change?.pct.toFixed(2)}%
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                            Gain: ₹{change?.diff.toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Losted Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ padding: '12px 20px', borderRadius: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <TrendingDown size={20} color="var(--danger)" />
+                        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)', margin: 0 }}>LOSTED LIST</h2>
+                        <span style={{ marginLeft: 'auto', background: 'var(--danger)', color: 'white', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                            {losted.length}
+                        </span>
+                    </div>
+
+                    {!hasInteracted ? (
+                        <div className="empty-state" style={{ height: 300 }}>
+                            <Filter size={40} />
+                            <p>Select a filter to view losted companies</p>
+                        </div>
+                    ) : losted.length === 0 ? (
+                        <div className="empty-state" style={{ height: 300 }}>
+                            <p>No losted companies found</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                            {losted.map(({ item, change }) => (
+                                <div key={item.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <div style={{ fontWeight: 700, fontSize: 16 }}>{item.company_name}</div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            Issue: ₹{'issue_price' in item ? item.issue_price : item.buy_price}
+                                        </div>
+                                    </div>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <div style={{ color: 'var(--danger)', fontWeight: 800, fontSize: 18 }}>
+                                            {change?.pct.toFixed(2)}%
+                                        </div>
+                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                            Loss: ₹{Math.abs(change?.diff || 0).toLocaleString()}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+            </div>
+        </div>
+    )
+}

@@ -1,0 +1,221 @@
+# IPO Tracker / Alert — Implementation Plan
+
+A full-stack web application for tracking recently listed IPO companies with portfolio tracking, scraped data from Groww/Screener, Discord alerts, and configurable alert rules.
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React + Vite (TypeScript) |
+| Backend | Python FastAPI (Vercel Serverless Functions via `api/` folder) |
+| Database | Firebase Firestore (NoSQL) |
+| Scraping | BeautifulSoup + Requests (Groww & Screener.in) |
+| Alerts | Discord Webhook |
+| Cron | GitHub Actions (weekdays 2:00 PM IST = 08:30 UTC) |
+| Deployment | Vercel (frontend + backend API routes) |
+
+---
+
+## Project Structure
+
+```
+ipo_tracker_alert/
+├── frontend/               # React + Vite app
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Dashboard.tsx       # Main page with company cards
+│   │   │   └── AlertSettings.tsx   # Alert rules configuration page
+│   │   ├── components/
+│   │   │   ├── AddIpoModal.tsx      # Add IPO form + Groww scrape + edit
+│   │   │   ├── AddSectorModal.tsx   # Add sector form
+│   │   │   ├── CompanyCard.tsx      # Portfolio company card
+│   │   │   └── ...
+│   │   ├── App.tsx
+│   │   └── main.tsx
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/                # FastAPI Python backend
+│   ├── main.py             # FastAPI app entry + all routers
+│   ├── scrapers/
+│   │   ├── groww_scraper.py    # Scrape Groww IPO detail page
+│   │   └── screener_scraper.py # Provided StockScraper class (CMP)
+│   ├── firebase_client.py  # Firebase Admin SDK init
+│   ├── alert_engine.py     # Alert logic (% calculations, rule lookup)
+│   ├── discord_notifier.py # Send Discord webhook messages
+│   ├── cron_job.py         # Called by GitHub Actions
+│   └── requirements.txt
+├── api/                    # Vercel serverless entry point
+│   └── index.py            # Routes all requests to FastAPI app
+├── .github/
+│   └── workflows/
+│       └── cron_alert.yml  # Daily cron job Mon-Fri 2PM IST
+├── vercel.json             # Vercel build + routing config
+├── firebase_setup.md       # Step-by-step Firebase setup guide
+└── .env.example            # Template for required env variables
+```
+
+---
+
+## Proposed Changes
+
+### Backend — Firebase Collections (equivalent to SQL tables)
+
+#### [NEW] `firebase_setup.md`
+- Step-by-step guide to create Firebase project
+- Firestore collections structure (sectors, ipos, alert_rules)
+- Security rules
+- Environment variables listing
+
+**Firestore Collections:**
+
+| Collection | Fields |
+|---|---|
+| `sectors` | `id`, `name`, `created_at` |
+| `ipos` | `id`, `company_name`, `sector_id`, `sector_name`, `portfolio` (bool), `no_of_shares`, `buy_price`, `groww_link`, `listed_on`, `issue_price`, `listing_price`, `issue_size`, `qib_subscription`, `nii_subscription`, `rii_subscription`, `total_subscription`, `created_at` |
+| `alert_rules` | `id`, `type` (base/sector/company), `sector_id`?, `company_name`?, `gain_pct`, `loss_pct`, `created_at` |
+
+---
+
+### Backend — Python FastAPI
+
+#### [NEW] `backend/requirements.txt`
+```
+fastapi
+uvicorn
+firebase-admin
+requests
+beautifulsoup4
+python-dotenv
+httpx
+```
+
+#### [NEW] `backend/firebase_client.py`
+- Initializes Firebase Admin SDK from `FIREBASE_SERVICE_ACCOUNT_JSON` env var (JSON string)
+- Exposes `db` Firestore client
+
+#### [NEW] `backend/scrapers/groww_scraper.py`
+Scrapes from a Groww IPO detail URL:
+- Listed On: converts `16Feb'2026` → `16-02-2026`
+- Issue Price, Listing Price, Issue Size
+- QIB, NII, RII, Total subscription rates
+
+#### [NEW] `backend/scrapers/screener_scraper.py`
+- The provided `StockScraper` class (get CMP from screener.in)
+
+#### [NEW] `backend/main.py`
+API endpoints:
+- `GET/POST /api/sectors` — list and create sectors
+- `DELETE /api/sectors/{id}` — delete sector
+- `GET/POST /api/ipos` — list and create IPOs
+- `PUT /api/ipos/{id}` — update IPO
+- `DELETE /api/ipos/{id}` — delete IPO
+- `POST /api/scrape/groww` — scrape Groww link, return data for preview
+- `GET /api/scrape/cmp/{company_name}` — get CMP from screener
+- `GET/POST /api/alert-rules` — list and create alert rules
+- `PUT /api/alert-rules/{id}` — update rule
+- `DELETE /api/alert-rules/{id}` — delete rule
+- `POST /api/cron/check-alerts` — run alert checks (called by GitHub Actions)
+
+#### [NEW] `backend/alert_engine.py`
+- Loads all IPOs and their applicable rule (company > sector > base)
+- Calculates `%Issue = (CMP - IssuePrice)*100/IssuePrice`
+- Calculates `%Listing = (CMP - ListingPrice)*100/ListingPrice`
+- If either crosses gain/loss threshold → trigger Discord alert
+
+#### [NEW] `backend/discord_notifier.py`
+- Sends rich embed message to Discord webhook with company name, CMP, issue price, listing price, % values
+
+#### [NEW] `api/index.py`
+- Vercel entry point — wraps FastAPI app for serverless execution
+
+---
+
+### Frontend — React + Vite
+
+#### [NEW] `frontend/src/pages/Dashboard.tsx`
+- Portfolio company cards showing: Company, CMP, Invested, Current Value, % Change (green/red)
+- Summary bar: Total Invested, Total Current Value, Total % Change
+- Buttons: **Add IPO**, **Add Sector**, **Alert Settings**
+
+#### [NEW] `frontend/src/components/AddIpoModal.tsx`
+Multi-step modal:
+1. Input form: Company name, Sector (dropdown from DB), Portfolio (Yes/No radio), optionally Shares + Buy Price, Groww link
+2. On "Proceed": calls `/api/scrape/groww` → shows scraped fields (all editable)
+3. On "Submit": saves to Firestore via `/api/ipos`
+
+#### [NEW] `frontend/src/components/AddSectorModal.tsx`
+- Single input: sector name → POST `/api/sectors`
+
+#### [NEW] `frontend/src/pages/AlertSettings.tsx`
+Three sections:
+1. **Base Rules** — Gain% and Loss% (default +15/-15) with edit/delete per rule
+2. **Sector-Specific Rules** — Add Sector Rule → sector dropdown + gain% + loss%; list with edit/delete
+3. **Company-Specific Rules** — Add Company Rule → company name + gain% + loss%; list with edit/delete
+
+---
+
+### GitHub Actions Cron
+
+#### [NEW] `.github/workflows/cron_alert.yml`
+```yaml
+on:
+  schedule:
+    - cron: '30 8 * * 1-5'   # 2:00 PM IST (UTC+5:30) Mon-Fri
+```
+- Calls `POST https://<your-vercel-app>/api/cron/check-alerts` with a `CRON_SECRET` header for security
+
+---
+
+### Vercel Configuration
+
+#### [NEW] `vercel.json`
+- Routes `/api/*` to Python serverless functions
+- Routes everything else to React frontend build
+
+---
+
+## Environment Variables
+
+### `.env.example` (template committed to repo)
+```
+# Firebase
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+
+# Discord
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/...
+
+# Security
+CRON_SECRET=your-random-secret-here
+
+# Backend URL (used by frontend)
+VITE_API_BASE_URL=https://your-app.vercel.app
+```
+
+### Where to set them:
+| Variable | Vercel | GitHub Secrets |
+|---|---|---|
+| `FIREBASE_SERVICE_ACCOUNT_JSON` | ✅ | ✅ |
+| `DISCORD_WEBHOOK_URL` | ✅ | ✅ |
+| `CRON_SECRET` | ✅ | ✅ |
+| `VITE_API_BASE_URL` | ✅ | ❌ |
+
+---
+
+## Verification Plan
+
+### Automated Tests
+- Run backend locally: `cd backend && uvicorn main:app --reload --port 8000`
+- Test scrape endpoint: `curl -X POST http://localhost:8000/api/scrape/groww -d '{"url":"<groww_url>"}' -H 'Content-Type: application/json'`
+- Test CMP: `curl http://localhost:8000/api/scrape/cmp/TataSteel`
+- Test alert check: `curl -X POST http://localhost:8000/api/cron/check-alerts -H 'x-cron-secret: test'`
+
+### Browser / Frontend Tests
+- Open Vite dev server: `cd frontend && npm run dev`
+- Click "Add Sector" → enter name → verify it appears in sector dropdown when adding IPO
+- Click "Add IPO" → fill fields → paste Groww URL → click Proceed → verify scraped data shows
+- Edit scraped values → click Submit → verify company card appears on dashboard
+- Navigate to Alert Settings → set rules → verify they persist and are shown
+
+### Manual Deployment Verification
+- After Vercel deploy, open production URL → perform same browser tests above
+- Check Discord channel for alert messages after triggering cron endpoint manually
