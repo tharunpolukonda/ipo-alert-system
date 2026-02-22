@@ -2,8 +2,8 @@ name: Stock Alert Cron Job
 
 on:
   schedule:
-    # Run every hour
-    - cron: '0 * * * *'
+    # Run at 2:00 PM IST (08:30 UTC) every Monday to Friday
+    - cron: '30 8 * * 1-5'
   workflow_dispatch:  # Allow manual triggering
 
 jobs:
