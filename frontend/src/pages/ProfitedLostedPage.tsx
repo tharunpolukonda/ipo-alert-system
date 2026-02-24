@@ -89,25 +89,25 @@ export default function ProfitedLostedPage() {
 
             <SearchHeader showActions={false} />
 
-            <div style={{ display: 'flex', gap: 12, padding: '16px 40px', background: 'rgba(15, 20, 32, 0.5)', borderBottom: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', gap: 12, padding: '16px 20px', background: 'rgba(15, 20, 32, 0.5)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)', flex: '1 1 160px' }}>
                     <Filter size={14} color="var(--accent-blue)" />
                     <select
                         className="form-select"
-                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 20, width: '100%' }}
                         value={viewMode}
                         onChange={(e) => { setViewMode(e.target.value as any); setHasInteracted(true) }}
                     >
                         <option value="all">🌐 All IPOs</option>
-                        <option value="portfolio">💼 Portfolio</option>
+                        <option value="portfolio">💼 Portfolio Only</option>
                     </select>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)', flex: '1 1 160px' }}>
                     <LayoutGrid size={14} color="var(--accent-purple)" />
                     <select
                         className="form-select"
-                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 20, width: '100%' }}
                         value={selectedSector}
                         onChange={(e) => { setSelectedSector(e.target.value); setHasInteracted(true) }}
                     >
@@ -117,43 +117,43 @@ export default function ProfitedLostedPage() {
                 </div>
             </div>
 
-            <div className="page-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, padding: '24px 40px' }}>
+            <div className="page-content" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 20, padding: '20px' }}>
 
                 {/* Profited Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ padding: '12px 20px', borderRadius: 12, background: 'var(--success-bg)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <TrendingUp size={20} color="var(--success)" />
-                        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--success)', margin: 0 }}>PROFITED LIST</h2>
-                        <span style={{ marginLeft: 'auto', background: 'var(--success)', color: 'var(--bg-primary)', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ padding: '10px 16px', borderRadius: 12, background: 'var(--success-bg)', border: '1px solid var(--success)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <TrendingUp size={18} color="var(--success)" />
+                        <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--success)', margin: 0 }}>PROFITED</h2>
+                        <span style={{ marginLeft: 'auto', background: 'var(--success)', color: 'var(--bg-primary)', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
                             {profited.length}
                         </span>
                     </div>
 
                     {!hasInteracted ? (
-                        <div className="empty-state" style={{ height: 300 }}>
-                            <Filter size={40} />
-                            <p>Select a filter to view profited companies</p>
+                        <div className="empty-state" style={{ height: 200 }}>
+                            <Filter size={32} />
+                            <p style={{ fontSize: 14 }}>Select a filter to start</p>
                         </div>
                     ) : profited.length === 0 ? (
-                        <div className="empty-state" style={{ height: 300 }}>
-                            <p>No profited companies found</p>
+                        <div className="empty-state" style={{ height: 200 }}>
+                            <p style={{ fontSize: 14 }}>None found</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {profited.map(({ item, change }) => (
-                                <div key={item.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div key={item.id} className="card" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
-                                        <div style={{ fontWeight: 700, fontSize: 16 }}>{item.company_name}</div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                                            Issue: ₹{'issue_price' in item ? item.issue_price : item.buy_price}
+                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{item.company_name}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            @ ₹{'issue_price' in item ? item.issue_price : item.buy_price}
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: 18 }}>
-                                            +{change?.pct.toFixed(2)}%
+                                        <div style={{ color: 'var(--success)', fontWeight: 800, fontSize: 16 }}>
+                                            +{change?.pct.toFixed(1)}%
                                         </div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                            Gain: ₹{change?.diff.toLocaleString()}
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                            +₹{change?.diff.toLocaleString()}
                                         </div>
                                     </div>
                                 </div>
@@ -163,40 +163,40 @@ export default function ProfitedLostedPage() {
                 </div>
 
                 {/* Losted Column */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ padding: '12px 20px', borderRadius: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <TrendingDown size={20} color="var(--danger)" />
-                        <h2 style={{ fontSize: 18, fontWeight: 800, color: 'var(--danger)', margin: 0 }}>LOSTED LIST</h2>
-                        <span style={{ marginLeft: 'auto', background: 'var(--danger)', color: 'white', padding: '2px 8px', borderRadius: 6, fontSize: 12, fontWeight: 800 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ padding: '10px 16px', borderRadius: 12, background: 'var(--danger-bg)', border: '1px solid var(--danger)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <TrendingDown size={18} color="var(--danger)" />
+                        <h2 style={{ fontSize: 16, fontWeight: 800, color: 'var(--danger)', margin: 0 }}>LOSTED</h2>
+                        <span style={{ marginLeft: 'auto', background: 'var(--danger)', color: 'white', padding: '2px 6px', borderRadius: 4, fontSize: 11, fontWeight: 800 }}>
                             {losted.length}
                         </span>
                     </div>
 
                     {!hasInteracted ? (
-                        <div className="empty-state" style={{ height: 300 }}>
-                            <Filter size={40} />
-                            <p>Select a filter to view losted companies</p>
+                        <div className="empty-state" style={{ height: 200 }}>
+                            <Filter size={32} />
+                            <p style={{ fontSize: 14 }}>Select a filter to start</p>
                         </div>
                     ) : losted.length === 0 ? (
-                        <div className="empty-state" style={{ height: 300 }}>
-                            <p>No losted companies found</p>
+                        <div className="empty-state" style={{ height: 200 }}>
+                            <p style={{ fontSize: 14 }}>None found</p>
                         </div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {losted.map(({ item, change }) => (
-                                <div key={item.id} className="card" style={{ padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div key={item.id} className="card" style={{ padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                     <div>
-                                        <div style={{ fontWeight: 700, fontSize: 16 }}>{item.company_name}</div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                                            Issue: ₹{'issue_price' in item ? item.issue_price : item.buy_price}
+                                        <div style={{ fontWeight: 700, fontSize: 14 }}>{item.company_name}</div>
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
+                                            @ ₹{'issue_price' in item ? item.issue_price : item.buy_price}
                                         </div>
                                     </div>
                                     <div style={{ textAlign: 'right' }}>
-                                        <div style={{ color: 'var(--danger)', fontWeight: 800, fontSize: 18 }}>
-                                            {change?.pct.toFixed(2)}%
+                                        <div style={{ color: 'var(--danger)', fontWeight: 800, fontSize: 16 }}>
+                                            {change?.pct.toFixed(1)}%
                                         </div>
-                                        <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                            Loss: ₹{Math.abs(change?.diff || 0).toLocaleString()}
+                                        <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                            -₹{Math.abs(change?.diff || 0).toLocaleString()}
                                         </div>
                                     </div>
                                 </div>

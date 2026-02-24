@@ -300,42 +300,42 @@ export default function AlertSettings() {
             <SearchHeader showActions={false} />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-                <div className="page-header">
+                <div className="page-header" style={{ padding: '24px 20px 0' }}>
                     <div>
-                        <h1 className="page-title">Alert Rule Configuration</h1>
-                        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 4 }}>
-                            Rules apply in priority order: Company → Sector → Base
+                        <h1 className="page-title" style={{ fontSize: 'clamp(20px, 5vw, 24px)' }}>Alert Configuration</h1>
+                        <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
+                            Priority: Company → Sector → Base
                         </p>
                     </div>
                 </div>
 
-                <div className="page-content" style={{ paddingTop: 20, maxWidth: 900 }}>
+                <div className="page-content" style={{ paddingTop: 16, maxWidth: 900, paddingLeft: 20, paddingRight: 20 }}>
                     {loading ? (
                         <div className="empty-state"><span className="spinner spinner-lg" /></div>
                     ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 28 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                             {/* ── Base Rule ── */}
-                            <div className="card" style={{ padding: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <div className="card" style={{ padding: '16px 20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)' }}>
-                                            <Shield size={18} />
+                                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)' }}>
+                                            <Shield size={16} />
                                         </div>
                                         <div>
-                                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Base Rule</h3>
-                                            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Default rule applied to all companies</p>
+                                            <h3 style={{ fontSize: 14, fontWeight: 700 }}>Base Rule</h3>
+                                            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Applies to all companies</p>
                                         </div>
                                     </div>
                                     {baseRules.length === 0 && (
                                         <button className="btn btn-primary btn-sm" onClick={ensureBaseRule}>
-                                            <Plus size={14} /> Create Base Rule
+                                            <Plus size={14} /> Create
                                         </button>
                                     )}
                                 </div>
                                 {baseRules.length === 0 ? (
-                                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                                        No base rule set. Default is ±15%. Click above to create one.
+                                    <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                                        No base rule set. Default is ±15%.
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -347,24 +347,24 @@ export default function AlertSettings() {
                             </div>
 
                             {/* ── Sector Rules ── */}
-                            <div className="card" style={{ padding: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <div className="card" style={{ padding: '16px 20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-purple)' }}>
-                                            <Building2 size={18} />
+                                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-purple)' }}>
+                                            <Building2 size={16} />
                                         </div>
                                         <div>
-                                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Sector-Specific Rules</h3>
-                                            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Overrides the base rule for specific sectors</p>
+                                            <h3 style={{ fontSize: 14, fontWeight: 700 }}>Sector Overrides</h3>
+                                            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Overrides base rule for sector</p>
                                         </div>
                                     </div>
                                     <button className="btn btn-secondary btn-sm" onClick={() => setShowSectorModal(true)}>
-                                        <Plus size={14} /> Add Sector Rule
+                                        <Plus size={14} /> Add Sector
                                     </button>
                                 </div>
                                 {sectorRules.length === 0 ? (
-                                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                                        No sector rules. Base rule applies to all sectors.
+                                    <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                                        No sector rules.
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -376,24 +376,24 @@ export default function AlertSettings() {
                             </div>
 
                             {/* ── Company Rules ── */}
-                            <div className="card" style={{ padding: 24 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <div className="card" style={{ padding: '16px 20px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-emerald)' }}>
-                                            <User size={18} />
+                                        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16,185,129,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-emerald)' }}>
+                                            <User size={16} />
                                         </div>
                                         <div>
-                                            <h3 style={{ fontSize: 16, fontWeight: 700 }}>Company-Specific Rules</h3>
-                                            <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>Highest priority — overrides sector & base rules</p>
+                                            <h3 style={{ fontSize: 14, fontWeight: 700 }}>Company Overrides</h3>
+                                            <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Highest priority over all</p>
                                         </div>
                                     </div>
                                     <button className="btn btn-secondary btn-sm" onClick={() => setShowCompanyModal(true)}>
-                                        <Plus size={14} /> Add Company Rule
+                                        <Plus size={14} /> Add Company
                                     </button>
                                 </div>
                                 {companyRules.length === 0 ? (
-                                    <div style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>
-                                        No company rules. Sector or base rules apply.
+                                    <div style={{ padding: '12px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>
+                                        No company rules.
                                     </div>
                                 ) : (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -406,15 +406,14 @@ export default function AlertSettings() {
 
                             {/* Rule priority explanation */}
                             <div style={{
-                                padding: '16px 20px',
+                                padding: '14px 16px',
                                 background: 'rgba(59,130,246,0.06)',
                                 border: '1px solid rgba(59,130,246,0.15)',
-                                borderRadius: 12, fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.8
+                                borderRadius: 12, fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.6
                             }}>
-                                <strong style={{ color: 'var(--accent-blue)' }}>📋 How Rules Work:</strong><br />
-                                Alerts trigger when CMP crosses <span className="gain">Gain%</span> or <span className="loss">Loss%</span> relative to both <strong>Issue Price</strong> and <strong>Listing Price</strong>.<br />
-                                <strong>Priority:</strong> Company Rule → Sector Rule → Base Rule (default ±15%)<br />
-                                Alerts are sent to Discord daily at <strong>2:00 PM IST</strong> (Mon–Fri).
+                                <strong style={{ color: 'var(--accent-blue)', display: 'block', marginBottom: 4 }}>📋 How Rules Work:</strong>
+                                Alerts trigger when CMP crosses <span className="gain">Gain%</span> or <span className="loss">Loss%</span> relative to both <strong>Issue</strong> and <strong>Listing Price</strong>.<br />
+                                <strong>Execution:</strong> Discord alerts daily at <strong>2:05 PM IST</strong>.
                             </div>
                         </div>
                     )}

@@ -95,8 +95,9 @@ export default function Dashboard() {
 
             <div style={{ position: 'relative', zIndex: 1 }}>
                 {/* Header Stats Section */}
-                <div style={{ display: 'flex', alignItems: 'center', padding: '16px 40px 0', gap: 24 }}>
-                    <img src="/assets/bull_premium_1771778168693.png" alt="Bull" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--accent-blue-glow))' }} />
+                {/* Header Stats Section */}
+                <div className="stat-card-row" style={{ display: 'flex', alignItems: 'center', padding: '16px 40px 0', gap: 24 }}>
+                    <img src="/assets/bull_premium_1771778168693.png" alt="Bull" className="mobile-hide" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--accent-blue-glow))' }} />
 
                     <div style={{ flex: 1 }}>
                         <div className="grid-3" style={{ gap: 16 }}>
@@ -122,13 +123,13 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    <img src="/assets/bear_blue_premium_1771777968054.png" alt="Bear" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--danger-bg))' }} />
+                    <img src="/assets/bear_blue_premium_1771777968054.png" alt="Bear" className="mobile-hide" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--danger-bg))' }} />
                 </div>
 
                 {/* Filter Header */}
                 <div className="page-header" style={{ paddingTop: 32 }}>
                     <div>
-                        <h1 className="page-title" style={{ fontSize: 24 }}>
+                        <h1 className="page-title">
                             {selectedSector === 'all-portfolio' ? 'My Portfolio' :
                                 selectedSector === 'all-ipos' ? 'All Tracked IPOs' :
                                     `${sectors.find(s => s.id === selectedSector)?.name} IPOs`}
@@ -136,10 +137,10 @@ export default function Dashboard() {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <label className="form-label" style={{ marginBottom: 0 }}>View Mode:</label>
+                        <label className="form-label" style={{ marginBottom: 0 }}>View:</label>
                         <select
                             className="form-select"
-                            style={{ width: 220, height: 38, fontSize: 13, fontWeight: 600 }}
+                            style={{ width: 220 }}
                             value={selectedSector}
                             onChange={(e) => setSelectedSector(e.target.value)}
                         >
@@ -158,7 +159,7 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                <div className="page-content" style={{ paddingTop: 20 }}>
+                <div className="page-content">
                     {loading ? (
                         <div className="empty-state">
                             <span className="spinner spinner-lg" />
@@ -178,8 +179,6 @@ export default function Dashboard() {
                             /* Sector-specific or Portfolio View (Card Grid) */
                             <div className="grid-auto">
                                 {filteredIpos.map(ipo => {
-                                    // Adapt Ipo to PortfolioCompany for CompanyCard if needed, 
-                                    // or just filter the portfolio summary list.
                                     const portfolioComp = portfolio?.companies?.find(c => c.id === ipo.id)
                                     if (portfolioComp) {
                                         return (
@@ -195,38 +194,37 @@ export default function Dashboard() {
                                             />
                                         )
                                     }
-                                    // Fallback for non-portfolio items in sector view (Table instead of card for clarity)
                                     return <div key={ipo.id} style={{ display: 'none' }}>{ipo.company_name}</div>
                                 })}
                             </div>
                         ) : (
                             /* All IPOs View (Table) */
-                            <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+                            <div className="table-container">
                                 <table className="data-table">
                                     <thead>
                                         <tr>
                                             <th>Company</th>
                                             <th>Sector</th>
-                                            <th>Listed On</th>
+                                            <th className="mobile-hide">Listed On</th>
                                             <th>Issue ₹</th>
-                                            <th>Listing ₹</th>
-                                            <th>Issue Size</th>
+                                            <th className="mobile-hide">Listing ₹</th>
+                                            <th className="mobile-hide">Issue Size</th>
                                             <th>QIB</th>
                                             <th>NII</th>
                                             <th>RII</th>
-                                            <th>Total Sub.</th>
+                                            <th>Total</th>
                                             <th>Portfolio</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filteredIpos.map(ipo => (
                                             <tr key={ipo.id}>
-                                                <td style={{ fontWeight: 600 }}>{ipo.company_name}</td>
+                                                <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{ipo.company_name}</td>
                                                 <td><span className="badge badge-purple">{ipo.sector_name || '—'}</span></td>
-                                                <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{ipo.listed_on || '—'}</td>
+                                                <td className="mobile-hide" style={{ color: 'var(--text-secondary)', fontSize: 13, whiteSpace: 'nowrap' }}>{ipo.listed_on || '—'}</td>
                                                 <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.issue_price ? `₹${ipo.issue_price} ` : '—'}</td>
-                                                <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.listing_price ? `₹${ipo.listing_price} ` : '—'}</td>
-                                                <td>{ipo.issue_size || '—'}</td>
+                                                <td className="mobile-hide" style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.listing_price ? `₹${ipo.listing_price} ` : '—'}</td>
+                                                <td className="mobile-hide">{ipo.issue_size || '—'}</td>
                                                 <td><span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{ipo.qib_subscription || '—'}</span></td>
                                                 <td><span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{ipo.nii_subscription || '—'}</span></td>
                                                 <td><span style={{ color: 'var(--accent-emerald)', fontWeight: 600 }}>{ipo.rii_subscription || '—'}</span></td>

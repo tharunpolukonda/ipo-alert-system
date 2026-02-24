@@ -56,19 +56,14 @@ export default function CompanyDetailPage() {
 
             const portfolioRec = summary.companies.find((c: PortfolioCompany) => c.id === ipoRecord.id)
 
-            // Merge Data: Portfolio data takes precedence for financial metrics, 
-            // but IPO data provides the description and subscription fields.
             const mergedComp: PortfolioCompany = {
                 ...ipoRecord,
-                // Fields from IPO record (important for subscription data)
                 qib_subscription: ipoRecord.qib_subscription,
                 nii_subscription: ipoRecord.nii_subscription,
                 rii_subscription: ipoRecord.rii_subscription,
                 total_subscription: ipoRecord.total_subscription,
                 issue_size: ipoRecord.issue_size,
                 groww_link: ipoRecord.groww_link,
-
-                // Fields from Portfolio record (if exists)
                 id: ipoRecord.id,
                 company_name: ipoRecord.company_name,
                 sector: ipoRecord.sector_name || 'Unknown Sector',
@@ -81,13 +76,11 @@ export default function CompanyDetailPage() {
                 pct_change: portfolioRec?.pct_change || null,
             }
 
-            // Fetch CMP if missing (e.g., non-portfolio stocks)
             if (mergedComp.cmp === null) {
                 try {
                     const cmpRes = await scrapeApi.cmp(mergedComp.company_name)
                     if (cmpRes.success && cmpRes.price) {
                         mergedComp.cmp = cmpRes.price
-                        // Also calculate pct change if listing/issue price exists
                         if (mergedComp.issue_price) {
                             const issue = parseFloat(mergedComp.issue_price.replace(/[^0-9.]/g, ''))
                             if (!isNaN(issue)) {
@@ -141,7 +134,7 @@ export default function CompanyDetailPage() {
     if (!company) return null
 
     const isGain = (company.pct_change ?? 0) >= 0
-    const rupeeColor = company.portfolio ? '#FFD700' : 'inherit' // Gold for portfolio
+    const rupeeColor = company.portfolio ? '#FFD700' : 'inherit'
 
     return (
         <div className="page">
@@ -149,18 +142,18 @@ export default function CompanyDetailPage() {
 
             <SearchHeader showActions={false} />
 
-            <div style={{ position: 'relative', zIndex: 1, padding: '24px 40px' }}>
-                <Link to="/" className="btn btn-ghost" style={{ marginBottom: 24, gap: 8, paddingLeft: 0 }}>
-                    <ArrowLeft size={18} /> Back to Dashboard
+            <div className="page-content">
+                <Link to="/" className="btn btn-ghost btn-sm" style={{ marginBottom: 24, gap: 8, paddingLeft: 0 }}>
+                    <ArrowLeft size={16} /> Back to Dashboard
                 </Link>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 32 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 24, marginBottom: 32 }}>
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 8 }}>
+                            <h1 className="page-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 16 }}>
                                 {company.company_name}
                                 {company.portfolio && (
-                                    <div title="Portfolio Stock" style={{ color: '#FFD700', filter: 'drop-shadow(0 0 8px rgba(255,215,0,0.4))' }}>
+                                    <div title="Portfolio Stock" style={{ color: '#FFD700', filter: 'drop-shadow(0 0 10px rgba(255,215,0,0.5))' }}>
                                         <div style={{ background: 'rgba(255,215,0,0.1)', border: '1px solid rgba(255,215,0,0.3)', width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                             <span style={{ fontSize: 18, fontWeight: 700 }}>₹</span>
                                         </div>
@@ -168,18 +161,18 @@ export default function CompanyDetailPage() {
                                 )}
                             </h1>
                             {company.portfolio && (
-                                <span className="badge badge-success" style={{ background: 'rgba(16,185,129,0.1)', color: 'var(--success)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                                    <ShieldCheck size={12} style={{ marginRight: 4 }} /> In Portfolio
+                                <span className="badge badge-success">
+                                    <ShieldCheck size={14} /> In Portfolio
                                 </span>
                             )}
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16, color: 'var(--text-muted)', fontSize: 14 }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                <Building2 size={14} /> {company.sector || 'Unknown Sector'}
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Building2 size={16} /> {company.sector || 'Unknown Sector'}
                             </span>
                             {company.groww_link && (
-                                <a href={company.groww_link} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--accent-blue)', textDecoration: 'none' }}>
-                                    <Globe size={14} /> View on Groww
+                                <a href={company.groww_link} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--accent-blue)', textDecoration: 'none' }}>
+                                    <Globe size={16} /> Groww Profile
                                 </a>
                             )}
                         </div>
@@ -187,19 +180,19 @@ export default function CompanyDetailPage() {
 
                     <div style={{ display: 'flex', gap: 12 }}>
                         <button className="btn btn-secondary" onClick={() => setShowIpoModal(true)}>
-                            <Pencil size={18} /> Edit Details
+                            <Pencil size={18} /> Edit IPO
                         </button>
                         <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>
-                            <Trash2 size={18} /> Delete Tracking
+                            <Trash2 size={18} /> Delete
                         </button>
                     </div>
                 </div>
 
                 <div className="grid-3" style={{ gap: 24, marginBottom: 32 }}>
                     <div className="stat-card">
-                        <div className="stat-label">Last Traded Price</div>
+                        <div className="stat-label">Last Price (CMP)</div>
                         <div className="stat-value" style={{ color: 'var(--text-primary)' }}>
-                            <span style={{ color: rupeeColor }}>₹</span>{company.cmp?.toLocaleString() || 'N/A'}
+                            <span style={{ color: rupeeColor }}>₹</span>{company.cmp?.toLocaleString() || '—'}
                         </div>
                     </div>
                     <div className="stat-card">
@@ -212,39 +205,39 @@ export default function CompanyDetailPage() {
                         <div className="stat-label">Current Value</div>
                         <div className="stat-value" style={{ color: isGain ? 'var(--success)' : 'var(--danger)' }}>
                             <span style={{ color: rupeeColor }}>₹</span>{company.current_value?.toLocaleString() || '0'}
-                            {company.pct_change !== null && (
-                                <span style={{ fontSize: 16, marginLeft: 8, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                    ({isGain ? '+' : ''}{company.pct_change?.toFixed(2)}%)
-                                    {isGain ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                </span>
-                            )}
                         </div>
+                        {company.pct_change !== null && (
+                            <div style={{ fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {isGain ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                                {isGain ? '+' : ''}{company.pct_change?.toFixed(2)}%
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: 24 }}>
-                    <div className="card" style={{ padding: 24 }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 20px 0', fontSize: 18, color: 'var(--accent-blue)' }}>
-                            <Info size={18} /> IPO Details
+                <div className="grid-2" style={{ gap: 24 }}>
+                    <div className="card">
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 20px 0', fontSize: 18, color: 'var(--accent-blue)' }}>
+                            <Info size={20} /> IPO Listing Details
                         </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                        <div className="grid-2" style={{ gap: 24 }}>
                             {[
-                                { label: 'Listed On', val: company.listed_on || 'N/A', icon: <Calendar size={14} /> },
-                                { label: 'Issue Price', val: company.issue_price ? `₹${company.issue_price}` : 'N/A', icon: <DollarSign size={14} /> },
-                                { label: 'Listing Price', val: company.listing_price ? `₹${company.listing_price}` : 'N/A', icon: <TrendingUp size={14} /> },
-                                { label: 'Issue Size', val: company.issue_size || 'N/A', icon: <BarChart3 size={14} /> },
+                                { label: 'Listed On', val: company.listed_on || '—', icon: <Calendar size={14} /> },
+                                { label: 'Issue ₹', val: company.issue_price ? `₹${company.issue_price}` : '—', icon: <DollarSign size={14} /> },
+                                { label: 'Listing ₹', val: company.listing_price ? `₹${company.listing_price}` : '—', icon: <TrendingUp size={14} /> },
+                                { label: 'Issue Size', val: company.issue_size || '—', icon: <BarChart3 size={14} /> },
                             ].map((item, idx) => (
                                 <div key={idx}>
                                     <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {item.icon} {item.label}
                                     </div>
-                                    <div style={{ fontWeight: 600 }}>{item.val}</div>
+                                    <div style={{ fontWeight: 600, fontSize: 16 }}>{item.val}</div>
                                 </div>
                             ))}
                         </div>
 
-                        <div style={{ marginTop: 24, padding: 16, background: 'rgba(255,255,255,0.03)', borderRadius: 12 }}>
-                            <h4 style={{ margin: '0 0 12px 0', fontSize: 14, color: 'var(--text-secondary)' }}>Subscription Data</h4>
+                        <div style={{ marginTop: 32, padding: 20, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: 16 }}>
+                            <h4 style={{ margin: '0 0 16px 0', fontSize: 14, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscription Details</h4>
                             <div className="grid-4" style={{ gap: 12 }}>
                                 {[
                                     { label: 'QIB', val: company.qib_subscription },
@@ -253,39 +246,42 @@ export default function CompanyDetailPage() {
                                     { label: 'Total', val: company.total_subscription },
                                 ].map((s, idx) => (
                                     <div key={idx}>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>{s.label}</div>
-                                        <div style={{ fontWeight: 600, color: 'var(--accent-purple)' }}>{s.val || 'N/A'}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: 11, marginBottom: 2 }}>{s.label}</div>
+                                        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--accent-purple)' }}>{s.val || '—'}</div>
                                     </div>
                                 ))}
                             </div>
                         </div>
                     </div>
 
-                    <div className="card" style={{ padding: 24 }}>
-                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '0 0 20px 0', fontSize: 18, color: 'var(--accent-purple)' }}>
-                            <ShieldCheck size={18} /> Portfolio Info
+                    <div className="card">
+                        <h3 style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '0 0 20px 0', fontSize: 18, color: 'var(--accent-purple)' }}>
+                            <ShieldCheck size={20} /> My Portfolio Status
                         </h3>
                         {company.portfolio ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                                 <div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Quantity (Shares)</div>
-                                    <div style={{ fontSize: 24, fontWeight: 700 }}>{company.shares}</div>
+                                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Holding Amount</div>
+                                    <div style={{ fontSize: 24, fontWeight: 800 }}>
+                                        {company.shares} <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: 16 }}>shares</span> @ ₹{company.buy_price}
+                                    </div>
                                 </div>
                                 <div style={{ height: 1, background: 'var(--border)' }} />
-                                <div>
-                                    <div style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 4 }}>Average Buy Price</div>
-                                    <div style={{ fontSize: 20, fontWeight: 600 }}>₹{company.buy_price}</div>
-                                </div>
-                                <div style={{ marginTop: 8, padding: 12, borderRadius: 8, background: isGain ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: isGain ? 'var(--success)' : 'var(--danger)', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    {isGain ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                    Current profit/loss: ₹{Math.abs((company.current_value || 0) - (company.invested || 0)).toLocaleString()} {isGain ? 'Profit' : 'Loss'}
+                                <div style={{ padding: 16, borderRadius: 12, background: isGain ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)', color: isGain ? 'var(--success)' : 'var(--danger)', fontSize: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    {isGain ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                                    <span style={{ fontWeight: 800 }}>
+                                        ₹{Math.abs((company.current_value || 0) - (company.invested || 0)).toLocaleString()}
+                                    </span>
+                                    <span style={{ opacity: 0.8, fontSize: 14 }}>
+                                        {isGain ? 'Overall Profit' : 'Overall Loss'}
+                                    </span>
                                 </div>
                             </div>
                         ) : (
                             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
-                                <p>This company is not in your portfolio.</p>
-                                <button className="btn btn-secondary btn-sm" style={{ marginTop: 12 }} onClick={() => setShowIpoModal(true)}>
-                                    Move to Portfolio
+                                <p style={{ fontSize: 14, marginBottom: 20 }}>You haven't added this company to your portfolio yet.</p>
+                                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setShowIpoModal(true)}>
+                                    <Plus size={16} /> Add to Portfolio
                                 </button>
                             </div>
                         )}
