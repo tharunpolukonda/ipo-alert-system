@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus, Tag, Bell, RefreshCw, TrendingUp, TrendingDown, BarChart3, LogOut, User } from 'lucide-react'
-import { sectorsApi, portfolioApi, iposApi, setApiUserId, Sector, PortfolioSummary, Ipo } from '../api'
+import { sectorsApi, portfolioApi, iposApi, Sector, PortfolioSummary, Ipo } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import CompanyCard from '../components/CompanyCard'
 import IpoModal from '../components/IpoModal'
@@ -29,7 +29,6 @@ export default function Dashboard() {
     const [selectedSector, setSelectedSector] = useState<string>('all-portfolio') // 'all-portfolio', 'all-ipos', or sector ID
 
     // Attach user ID to all backend requests
-    useEffect(() => { setApiUserId(userId) }, [userId])
 
     const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
         setToast({ message, type, id: Date.now() })

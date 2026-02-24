@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { setApiUserId } from '../api'
 
 interface AuthContextType {
     session: Session | null
@@ -33,12 +34,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session)
+            setApiUserId(session?.user?.id ?? null)
             if (session?.user) fetchUsername(session.user.id)
             setLoading(false)
         })
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session)
+            setApiUserId(session?.user?.id ?? null)
             if (session?.user) fetchUsername(session.user.id)
             else setUsername(null)
         })
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const signOut = async () => {
         await supabase.auth.signOut()
         setSession(null)
+        setApiUserId(null)
         setUsername(null)
     }
 

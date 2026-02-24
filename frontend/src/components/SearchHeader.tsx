@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Search, LogOut, RefreshCw, TrendingUp, Bell, Tag, Plus, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -26,36 +26,61 @@ export default function SearchHeader({
     const [matchingIpos, setMatchingIpos] = useState<Ipo[]>([])
     const [showPopup, setShowPopup] = useState(false)
     const [loadingData, setLoadingData] = useState(false)
+    const [fetchError, setFetchError] = useState(false)
 
-    useEffect(() => {
+    const fetchAllIpos = useCallback(async () => {
         if (!userId) return
         setLoadingData(true)
-        iposApi.list()
-            .then(setAllIpos)
-            .catch(err => {
-                console.error('SearchHeader fetch error:', err)
-            })
-            .finally(() => setLoadingData(false))
+        setFetchError(false)
+        try {
+            const data = await iposApi.list()
+            setAllIpos(data)
+        } catch (err) {
+            console.error('SearchHeader fetch error:', err)
+            setFetchError(true)
+        } finally {
+            setLoadingData(false)
+        }
     }, [userId])
+
+    useEffect(() => {
+        fetchAllIpos()
+    }, [userId, fetchAllIpos])
 
     const slugify = (text: string) => text.trim().replace(/\s+/g, '-')
 
-    const handleSearch = (e: React.FormEvent) => {
+    const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!query.trim()) return
 
-        if (allIpos.length === 0 && loadingData) {
-            alert('Syncing company data, please try again in a moment...')
-            return
+        // If no data, try one more quick sync
+        let currentIpos = allIpos
+        if (currentIpos.length === 0 && !loadingData) {
+            setLoadingData(true)
+            try {
+                currentIpos = await iposApi.list()
+                setAllIpos(currentIpos)
+            } catch (err) {
+                console.error('Retry fetch failed:', err)
+            } finally {
+                setLoadingData(false)
+            }
         }
 
         const q = query.toLowerCase().trim()
-        const matches = allIpos.filter(ipo =>
-            ipo.company_name.toLowerCase().includes(q)
+        const matches = currentIpos.filter(ipo =>
+            ipo.company_name.toLowerCase().includes(q) ||
+            slugify(ipo.company_name).toLowerCase().includes(q)
         )
 
         if (matches.length === 0) {
-            alert('No matching company found. Ensure you are logged in.')
+            if (loadingData) {
+                alert('Still syncing data... please try again in a few seconds.')
+            } else if (fetchError) {
+                alert('Failed to connect to server. Please check your connection or login again.')
+            } else {
+                alert(`No matching company found for "${query}". Ensure it is added to your track list.`)
+            }
         } else if (matches.length === 1) {
             navigate(`/search/${slugify(matches[0].company_name)}`)
             setQuery('')
