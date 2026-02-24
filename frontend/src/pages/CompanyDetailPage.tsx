@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import {
     ArrowLeft, TrendingUp, TrendingDown, Calendar, DollarSign, Building2,
-    BarChart3, Globe, Trash2, Pencil, ShieldCheck, Info
+    BarChart3, Globe, Trash2, Pencil, ShieldCheck, Info, Plus
 } from 'lucide-react'
 import { iposApi, portfolioApi, sectorsApi, scrapeApi, PortfolioCompany, Sector, Ipo } from '../api'
 import SearchHeader from '../components/SearchHeader'
