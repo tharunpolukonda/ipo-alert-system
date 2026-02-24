@@ -4,6 +4,7 @@ import AuthPage from './pages/AuthPage'
 import Dashboard from './pages/Dashboard'
 import AlertSettings from './pages/AlertSettings'
 import ProfitedLostedPage from './pages/ProfitedLostedPage'
+import CompanyDetailPage from './pages/CompanyDetailPage'
 
 function ProtectedRoutes() {
     const { session, loading } = useAuth()
@@ -25,6 +26,8 @@ function ProtectedRoutes() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/alerts" element={<AlertSettings />} />
             <Route path="/profited-losted" element={<ProfitedLostedPage />} />
+            <Route path="/company/:id" element={<CompanyDetailPage />} />
+            <Route path="/search/:searchQuery" element={<CompanyDetailPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     )

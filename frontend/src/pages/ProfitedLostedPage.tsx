@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, TrendingUp, TrendingDown, Filter, LayoutGrid, List as ListIcon } from 'lucide-react'
 import { iposApi, sectorsApi, portfolioApi, Ipo, Sector, PortfolioCompany } from '../api'
+import SearchHeader from '../components/SearchHeader'
 
 export default function ProfitedLostedPage() {
     const [allIpos, setAllIpos] = useState<Ipo[]>([])
@@ -86,45 +87,35 @@ export default function ProfitedLostedPage() {
         <div className="page">
             <div className="glow-bg" />
 
-            <nav className="navbar" style={{ height: 72 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <Link to="/" className="btn btn-secondary btn-sm" style={{ padding: '8px', background: '#000', borderColor: 'var(--border)' }}>
-                        <ArrowLeft size={20} color="var(--accent-blue)" />
-                    </Link>
-                    <img
-                        src="/assets/hoox_logo_premium_1771778134217.png"
-                        alt="Hoox"
-                        style={{ width: 44, height: 'auto' }}
-                    />
-                </div>
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        <Filter size={14} color="var(--accent-blue)" />
-                        <select
-                            className="form-select"
-                            style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
-                            value={viewMode}
-                            onChange={(e) => { setViewMode(e.target.value as any); setHasInteracted(true) }}
-                        >
-                            <option value="all">🌐 All IPOs</option>
-                            <option value="portfolio">💼 Portfolio</option>
-                        </select>
-                    </div>
+            <SearchHeader showActions={false} />
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
-                        <LayoutGrid size={14} color="var(--accent-purple)" />
-                        <select
-                            className="form-select"
-                            style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
-                            value={selectedSector}
-                            onChange={(e) => { setSelectedSector(e.target.value); setHasInteracted(true) }}
-                        >
-                            <option value="all">📁 All Sectors</option>
-                            {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                    </div>
+            <div style={{ display: 'flex', gap: 12, padding: '16px 40px', background: 'rgba(15, 20, 32, 0.5)', borderBottom: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <Filter size={14} color="var(--accent-blue)" />
+                    <select
+                        className="form-select"
+                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                        value={viewMode}
+                        onChange={(e) => { setViewMode(e.target.value as any); setHasInteracted(true) }}
+                    >
+                        <option value="all">🌐 All IPOs</option>
+                        <option value="portfolio">💼 Portfolio</option>
+                    </select>
                 </div>
-            </nav>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)' }}>
+                    <LayoutGrid size={14} color="var(--accent-purple)" />
+                    <select
+                        className="form-select"
+                        style={{ background: 'none', border: 'none', color: 'white', fontSize: 13, fontWeight: 600, outline: 'none', cursor: 'pointer', paddingRight: 30 }}
+                        value={selectedSector}
+                        onChange={(e) => { setSelectedSector(e.target.value); setHasInteracted(true) }}
+                    >
+                        <option value="all">📁 All Sectors</option>
+                        {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                </div>
+            </div>
 
             <div className="page-content" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, padding: '24px 40px' }}>
 

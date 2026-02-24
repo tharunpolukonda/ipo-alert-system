@@ -246,16 +246,36 @@ def create_alert_rule(body: AlertRuleCreate, x_user_id: Optional[str] = Header(N
     user_id = require_user(x_user_id)
     db = get_db()
 
-    # Enforce only one base rule per user — upsert if already exists
+    # Generic duplicate check based on type
+    existing_id = None
     if body.type == "base":
         existing = db.table("alert_rules").select("id").eq("type", "base").eq("user_id", user_id).execute()
         if existing.data:
             existing_id = existing.data[0]["id"]
-            resp = db.table("alert_rules").update(
-                {"gain_pct": body.gain_pct, "loss_pct": body.loss_pct, "updated_at": now_iso()}
-            ).eq("id", existing_id).execute()
-            return resp.data[0]
+    elif body.type == "sector" and body.sector_id:
+        existing = db.table("alert_rules").select("id").eq("type", "sector").eq("sector_id", body.sector_id).eq("user_id", user_id).execute()
+        if existing.data:
+            existing_id = existing.data[0]["id"]
+    elif body.type == "company" and body.company_name:
+        existing = db.table("alert_rules").select("id").eq("type", "company").eq("company_name", body.company_name).eq("user_id", user_id).execute()
+        if existing.data:
+            existing_id = existing.data[0]["id"]
 
+    if existing_id:
+        # Upsert: Update existing rule
+        updates = {
+            "gain_pct": body.gain_pct,
+            "loss_pct": body.loss_pct,
+            "updated_at": now_iso()
+        }
+        # For sector/company matches, also ensure names match if they might have changed
+        if body.sector_name: updates["sector_name"] = body.sector_name
+        if body.company_name: updates["company_name"] = body.company_name
+        
+        resp = db.table("alert_rules").update(updates).eq("id", existing_id).execute()
+        return resp.data[0]
+
+    # Create new rule
     data = body.model_dump()
     data["user_id"] = user_id
     data["created_at"] = now_iso()

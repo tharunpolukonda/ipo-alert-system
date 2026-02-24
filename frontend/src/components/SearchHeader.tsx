@@ -1,0 +1,146 @@
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { Search, LogOut, RefreshCw, TrendingUp, Bell, Tag, Plus, X } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { iposApi, Ipo } from '../api'
+
+interface Props {
+    onRefresh?: () => void
+    onAddIpo?: () => void
+    onAddSector?: () => void
+    refreshing?: boolean
+    showActions?: boolean
+}
+
+export default function SearchHeader({
+    onRefresh,
+    onAddIpo,
+    onAddSector,
+    refreshing = false,
+    showActions = true
+}: Props) {
+    const { signOut } = useAuth()
+    const navigate = useNavigate()
+    const [query, setQuery] = useState('')
+    const [allIpos, setAllIpos] = useState<Ipo[]>([])
+    const [matchingIpos, setMatchingIpos] = useState<Ipo[]>([])
+    const [showPopup, setShowPopup] = useState(false)
+
+    useEffect(() => {
+        iposApi.list().then(setAllIpos).catch(console.error)
+    }, [])
+
+    const slugify = (text: string) => text.trim().replace(/\s+/g, '-')
+
+    const handleSearch = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!query.trim()) return
+
+        const q = query.toLowerCase().trim()
+        const matches = allIpos.filter(ipo =>
+            ipo.company_name.toLowerCase().includes(q)
+        )
+
+        if (matches.length === 0) {
+            alert('No matching company found')
+        } else if (matches.length === 1) {
+            navigate(`/search/${slugify(matches[0].company_name)}`)
+            setQuery('')
+        } else {
+            setMatchingIpos(matches)
+            setShowPopup(true)
+        }
+    }
+
+    return (
+        <>
+            <nav className="navbar" style={{ height: 80, padding: '0 40px' }}>
+                <Link to="/" className="navbar-brand" style={{ gap: 12 }}>
+                    <img
+                        src="/assets/hoox_logo_premium_1771778134217.png"
+                        alt="Hoox"
+                        style={{ width: 80, height: 'auto' }}
+                    />
+                </Link>
+
+                <div style={{ flex: 1, maxWidth: 500, margin: '0 40px' }}>
+                    <form onSubmit={handleSearch} style={{ position: 'relative' }}>
+                        <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Search company..."
+                            style={{ paddingLeft: 44, borderRadius: 24, background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                        />
+                    </form>
+                </div>
+
+                <div className="navbar-actions">
+                    {showActions && (
+                        <>
+                            {onRefresh && (
+                                <button className="btn btn-secondary btn-sm" onClick={onRefresh} disabled={refreshing} style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
+                                    <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+                                </button>
+                            )}
+                            <Link to="/profited-losted" className="btn btn-secondary btn-sm" title="Profited/Losted" style={{ background: '#000', borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}>
+                                <TrendingUp size={14} />
+                            </Link>
+                            <Link to="/alerts" className="btn btn-secondary btn-sm" title="Alerts" style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
+                                <Bell size={14} />
+                            </Link>
+                            {onAddSector && (
+                                <button className="btn btn-secondary btn-sm" onClick={onAddSector} title="Add Sector" style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
+                                    <Tag size={14} />
+                                </button>
+                            )}
+                            {onAddIpo && (
+                                <button className="btn btn-secondary btn-sm" onClick={onAddIpo} title="Add IPO" style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
+                                    <Plus size={14} />
+                                </button>
+                            )}
+                            <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
+                        </>
+                    )}
+                    <button className="btn btn-secondary btn-sm" onClick={signOut} title="Sign out" style={{ background: '#000', color: 'var(--danger)', borderColor: 'var(--border)', padding: '4px 8px' }}>
+                        <LogOut size={16} />
+                    </button>
+                </div>
+            </nav>
+
+            {showPopup && (
+                <div className="modal-overlay" onClick={() => setShowPopup(false)}>
+                    <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+                        <div className="modal-header">
+                            <h3 className="modal-title">Select Company</h3>
+                            <button className="btn btn-ghost btn-icon" onClick={() => setShowPopup(false)}><X size={18} /></button>
+                        </div>
+                        <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {matchingIpos.map(ipo => (
+                                    <button
+                                        key={ipo.id}
+                                        className="btn btn-secondary"
+                                        style={{ justifyContent: 'flex-start', textAlign: 'left', width: '100%', padding: '12px 16px' }}
+                                        onClick={() => {
+                                            navigate(`/search/${slugify(ipo.company_name)}`)
+                                            setShowPopup(false)
+                                            setQuery('')
+                                        }}
+                                    >
+                                        <div>
+                                            <div style={{ fontWeight: 600, fontSize: 15 }}>{ipo.company_name}</div>
+                                            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{ipo.sector_name || 'No Sector'}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
+    )
+}

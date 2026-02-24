@@ -83,15 +83,22 @@ export interface PortfolioCompany {
     company_name: string
     sector: string
     sector_id?: string
+    portfolio: boolean
     shares: number
     buy_price: number
     cmp: number | null
     invested: number
     current_value: number | null
     pct_change: number | null
+    groww_link?: string
     issue_price?: string
     listing_price?: string
     listed_on?: string
+    issue_size?: string
+    qib_subscription?: string
+    nii_subscription?: string
+    rii_subscription?: string
+    total_subscription?: string
 }
 
 export interface PortfolioSummary {

@@ -1,12 +1,13 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Link, CheckCircle, AlertTriangle, Pencil } from 'lucide-react'
-import { Sector, iposApi, scrapeApi, GrowwScrapeResult } from '../api'
+import { Sector, iposApi, scrapeApi, GrowwScrapeResult, Ipo } from '../api'
 
 interface Props {
     sectors: Sector[]
     onClose: () => void
-    onCreated: () => void
+    onSuccess: () => void
     showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
+    editingIpo?: Ipo | null
 }
 
 interface FormData {
@@ -32,7 +33,7 @@ interface ScrapedFields {
 
 type Step = 1 | 2
 
-export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: Props) {
+export default function IpoModal({ sectors, onClose, onSuccess, showToast, editingIpo }: Props) {
     const [step, setStep] = useState<Step>(1)
     const [scraping, setScraping] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -60,6 +61,30 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
         total_subscription: '',
     })
 
+    useEffect(() => {
+        if (editingIpo) {
+            setForm({
+                company_name: editingIpo.company_name || '',
+                sector_id: editingIpo.sector_id || '',
+                sector_name: editingIpo.sector_name || '',
+                portfolio: editingIpo.portfolio ? 'yes' : 'no',
+                no_of_shares: editingIpo.no_of_shares?.toString() || '',
+                buy_price: editingIpo.buy_price?.toString() || '',
+                groww_link: editingIpo.groww_link || '',
+            })
+            setScraped({
+                listed_on: editingIpo.listed_on || '',
+                issue_price: editingIpo.issue_price || '',
+                listing_price: editingIpo.listing_price || '',
+                issue_size: editingIpo.issue_size || '',
+                qib_subscription: editingIpo.qib_subscription || '',
+                nii_subscription: editingIpo.nii_subscription || '',
+                rii_subscription: editingIpo.rii_subscription || '',
+                total_subscription: editingIpo.total_subscription || '',
+            })
+        }
+    }, [editingIpo])
+
     const setField = (key: keyof FormData, val: string) => {
         setForm(prev => ({ ...prev, [key]: val }))
         setErrors(prev => ({ ...prev, [key]: '' }))
@@ -84,19 +109,23 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
 
     const handleProceed = async () => {
         if (!validate()) return
+
+        // If editing and groww_link hasn't changed, we can potentially skip scraping if user wants, 
+        // but for simplicity we'll always scrape or let user proceed to step 2 directly if they want.
+        // Let's always scrape for now to ensure data is fresh.
         setScraping(true)
         setScrapeWarning('')
         try {
             const result: GrowwScrapeResult = await scrapeApi.groww(form.groww_link)
             setScraped({
-                listed_on: result.listed_on || '',
-                issue_price: result.issue_price || '',
-                listing_price: result.listing_price || '',
-                issue_size: result.issue_size || '',
-                qib_subscription: result.qib_subscription || '',
-                nii_subscription: result.nii_subscription || '',
-                rii_subscription: result.rii_subscription || '',
-                total_subscription: result.total_subscription || '',
+                listed_on: result.listed_on || scraped.listed_on,
+                issue_price: result.issue_price || scraped.issue_price,
+                listing_price: result.listing_price || scraped.listing_price,
+                issue_size: result.issue_size || scraped.issue_size,
+                qib_subscription: result.qib_subscription || scraped.qib_subscription,
+                nii_subscription: result.nii_subscription || scraped.nii_subscription,
+                rii_subscription: result.rii_subscription || scraped.rii_subscription,
+                total_subscription: result.total_subscription || scraped.total_subscription,
             })
             if (result.warning) {
                 setScrapeWarning(result.warning)
@@ -107,6 +136,8 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
             setStep(2)
         } catch {
             showToast('Failed to scrape Groww link. Please check the URL and try again.', 'error')
+            // Allow proceeding even if scrape fails, especially for editing
+            setStep(2)
         } finally {
             setScraping(false)
         }
@@ -116,7 +147,7 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
         setSubmitting(true)
         try {
             const selectedSector = sectors.find(s => s.id === form.sector_id)
-            await iposApi.create({
+            const payload: Partial<Ipo> = {
                 company_name: form.company_name.trim(),
                 sector_id: form.sector_id,
                 sector_name: selectedSector?.name || form.sector_name,
@@ -132,9 +163,16 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                 nii_subscription: scraped.nii_subscription || undefined,
                 rii_subscription: scraped.rii_subscription || undefined,
                 total_subscription: scraped.total_subscription || undefined,
-            })
-            showToast('IPO added successfully!', 'success')
-            onCreated()
+            }
+
+            if (editingIpo) {
+                await iposApi.update(editingIpo.id, payload)
+                showToast('IPO updated successfully!', 'success')
+            } else {
+                await iposApi.create(payload)
+                showToast('IPO added successfully!', 'success')
+            }
+            onSuccess()
             onClose()
         } catch {
             showToast('Failed to save IPO. Please try again.', 'error')
@@ -146,7 +184,6 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
     return (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
             <div className="modal modal-lg">
-                {/* Header */}
                 <div className="modal-header">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                         <div style={{
@@ -154,14 +191,13 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                             background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2))',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--accent-blue)'
                         }}>
-                            <Link size={18} />
+                            {editingIpo ? <Pencil size={18} /> : <Link size={18} />}
                         </div>
-                        <h2 className="modal-title">Add IPO</h2>
+                        <h2 className="modal-title">{editingIpo ? 'Edit IPO' : 'Add IPO'}</h2>
                     </div>
                     <button className="btn btn-ghost btn-icon" onClick={onClose}><X size={18} /></button>
                 </div>
 
-                {/* Step Indicator */}
                 <div style={{ padding: '16px 28px 0' }}>
                     <div className="steps">
                         <div className={`step-dot ${step >= 1 ? (step > 1 ? 'completed' : 'active') : ''}`}>
@@ -179,7 +215,6 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                 <div className="modal-body">
                     {step === 1 ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                            {/* Company Name */}
                             <div className="form-group">
                                 <label className="form-label">Company Name *</label>
                                 <input className="form-input" placeholder="e.g. Tata Technologies"
@@ -187,7 +222,6 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                                 {errors.company_name && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{errors.company_name}</p>}
                             </div>
 
-                            {/* Sector */}
                             <div className="form-group">
                                 <label className="form-label">Sector *</label>
                                 <select className="form-select" value={form.sector_id}
@@ -202,7 +236,6 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                                 {errors.sector_id && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{errors.sector_id}</p>}
                             </div>
 
-                            {/* Portfolio */}
                             <div className="form-group">
                                 <label className="form-label">In Portfolio?</label>
                                 <div className="radio-group">
@@ -219,7 +252,6 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                                 </div>
                             </div>
 
-                            {/* Portfolio fields */}
                             {form.portfolio === 'yes' && (
                                 <div className="grid-2" style={{ gap: 14 }}>
                                     <div className="form-group">
@@ -237,15 +269,11 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                                 </div>
                             )}
 
-                            {/* Groww Link */}
                             <div className="form-group">
                                 <label className="form-label">Groww IPO Link *</label>
                                 <input className="form-input" placeholder="https://groww.in/ipo/..."
                                     value={form.groww_link} onChange={e => setField('groww_link', e.target.value)} />
                                 {errors.groww_link && <p style={{ color: 'var(--danger)', fontSize: 12 }}>{errors.groww_link}</p>}
-                                <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
-                                    Paste the Groww IPO detail page URL. We'll auto-scrape the IPO data.
-                                </p>
                             </div>
                         </div>
                     ) : (
@@ -268,7 +296,7 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                                 display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#60a5fa'
                             }}>
                                 <Pencil size={14} />
-                                <span>All fields below are editable — correct any scraped values before submitting.</span>
+                                <span>All fields below are editable — correct any values before submitting.</span>
                             </div>
 
                             <div className="grid-2" style={{ gap: 14 }}>
@@ -308,7 +336,7 @@ export default function AddIpoModal({ sectors, onClose, onCreated, showToast }: 
                             <button className="btn btn-secondary" onClick={() => setStep(1)}>← Back</button>
                             <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
                                 {submitting ? <span className="spinner" /> : null}
-                                {submitting ? 'Saving...' : 'Submit'}
+                                {submitting ? 'Submit' : 'Submit'}
                             </button>
                         </>
                     )}

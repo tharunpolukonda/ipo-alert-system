@@ -1,16 +1,19 @@
 import { useState } from 'react'
-import { TrendingUp, TrendingDown, Trash2, ChevronDown, ChevronUp, Calendar, DollarSign } from 'lucide-react'
+import { TrendingUp, TrendingDown, Trash2, ChevronDown, ChevronUp, Calendar, DollarSign, Pencil } from 'lucide-react'
 import { PortfolioCompany, iposApi } from '../api'
+import DeleteConfirmationModal from './DeleteConfirmationModal'
 
 interface Props {
     company: PortfolioCompany
     onDeleted: () => void
+    onEdit: () => void
     showToast: (msg: string, type?: 'success' | 'error' | 'info') => void
 }
 
-export default function CompanyCard({ company, onDeleted, showToast }: Props) {
+export default function CompanyCard({ company, onDeleted, onEdit, showToast }: Props) {
     const [expanded, setExpanded] = useState(false)
     const [deleting, setDeleting] = useState(false)
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
     const isGain = (company.pct_change ?? 0) >= 0
     const pctDisplay = company.pct_change !== null
@@ -18,7 +21,6 @@ export default function CompanyCard({ company, onDeleted, showToast }: Props) {
         : '—'
 
     const handleDelete = async () => {
-        if (!confirm(`Remove ${company.company_name} from tracking?`)) return
         setDeleting(true)
         try {
             await iposApi.delete(company.id)
@@ -28,6 +30,7 @@ export default function CompanyCard({ company, onDeleted, showToast }: Props) {
             showToast('Failed to delete', 'error')
         } finally {
             setDeleting(false)
+            setShowDeleteConfirm(false)
         }
     }
 
@@ -131,16 +134,36 @@ export default function CompanyCard({ company, onDeleted, showToast }: Props) {
                 </div>
             )}
 
-            {/* Delete */}
-            <button
-                className="btn btn-ghost btn-icon"
-                style={{ position: 'absolute', top: 12, right: 12, color: 'var(--text-muted)' }}
-                onClick={handleDelete}
-                disabled={deleting}
-                title="Remove"
-            >
-                {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Trash2 size={14} />}
-            </button>
+            {/* Delete & Edit Actions */}
+            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', gap: 4 }}>
+                <button
+                    className="btn btn-ghost btn-icon"
+                    style={{ color: 'var(--text-muted)' }}
+                    onClick={onEdit}
+                    title="Edit"
+                >
+                    <Pencil size={14} />
+                </button>
+                <button
+                    className="btn btn-ghost btn-icon"
+                    style={{ color: 'var(--text-muted)' }}
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={deleting}
+                    title="Remove"
+                >
+                    {deleting ? <span className="spinner" style={{ width: 14, height: 14 }} /> : <Trash2 size={14} />}
+                </button>
+            </div>
+
+            {showDeleteConfirm && (
+                <DeleteConfirmationModal
+                    title="Confirm Delete"
+                    message={`Are you sure you want to delete ${company.company_name}? This action cannot be undone.`}
+                    onConfirm={handleDelete}
+                    onCancel={() => setShowDeleteConfirm(false)}
+                    loading={deleting}
+                />
+            )}
         </div>
     )
 }

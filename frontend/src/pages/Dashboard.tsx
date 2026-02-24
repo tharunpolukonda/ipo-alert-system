@@ -4,9 +4,10 @@ import { Plus, Tag, Bell, RefreshCw, TrendingUp, TrendingDown, BarChart3, LogOut
 import { sectorsApi, portfolioApi, iposApi, setApiUserId, Sector, PortfolioSummary, Ipo } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import CompanyCard from '../components/CompanyCard'
-import AddIpoModal from '../components/AddIpoModal'
+import IpoModal from '../components/IpoModal'
 import AddSectorModal from '../components/AddSectorModal'
 import Toast from '../components/Toast'
+import SearchHeader from '../components/SearchHeader'
 
 interface ToastState {
     message: string
@@ -21,7 +22,8 @@ export default function Dashboard() {
     const [allIpos, setAllIpos] = useState<Ipo[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
-    const [showAddIpo, setShowAddIpo] = useState(false)
+    const [showIpoModal, setShowIpoModal] = useState(false)
+    const [editingIpo, setEditingIpo] = useState<Ipo | null>(null)
     const [showAddSector, setShowAddSector] = useState(false)
     const [toast, setToast] = useState<ToastState | null>(null)
     const [selectedSector, setSelectedSector] = useState<string>('all-portfolio') // 'all-portfolio', 'all-ipos', or sector ID
@@ -84,46 +86,16 @@ export default function Dashboard() {
         <div className="page">
             <div className="glow-bg" />
 
-            {/* Navbar */}
-            <nav className="navbar" style={{ height: 72 }}>
-                <Link to="/" className="navbar-brand" style={{ gap: 12 }}>
-                    <img
-                        src="/assets/hoox_logo_premium_1771778134217.png"
-                        alt="Hoox"
-                        style={{ width: 48, height: 'auto' }}
-                    />
-                </Link>
-                <div className="navbar-actions">
-                    <button className="btn btn-secondary btn-sm" onClick={() => fetchData(true)} disabled={refreshing} style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
-                        <RefreshCw size={14} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
-                        {refreshing ? 'Refreshing...' : 'Refresh'}
-                    </button>
-                    <Link to="/profited-losted" className="btn btn-secondary btn-sm" style={{ background: '#000', borderColor: 'var(--accent-blue)', color: 'var(--accent-blue)' }}>
-                        <TrendingUp size={14} />
-                        Profited/Losted
-                    </Link>
-                    <Link to="/alerts" className="btn btn-secondary btn-sm" style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
-                        <Bell size={14} />
-                        Alerts
-                    </Link>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowAddSector(true)} style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
-                        <Tag size={14} />
-                        + Sector
-                    </button>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowAddIpo(true)} style={{ background: '#000', color: 'var(--accent-blue)', borderColor: 'var(--border)' }}>
-                        <Plus size={14} />
-                        Add IPO
-                    </button>
-                    <div style={{ width: 1, height: 20, background: 'var(--border)', margin: '0 4px' }} />
-                    <button className="btn btn-secondary btn-sm" onClick={signOut} title="Sign out" style={{ background: '#000', color: 'var(--danger)', borderColor: 'var(--border)', padding: '4px 8px' }}>
-                        <LogOut size={16} />
-                    </button>
-                </div>
-            </nav>
+            <SearchHeader
+                onRefresh={() => fetchData(true)}
+                refreshing={refreshing}
+                onAddIpo={() => { setEditingIpo(null); setShowIpoModal(true); }}
+                onAddSector={() => setShowAddSector(true)}
+            />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-                {/* Visual Branding across the top */}
-                <div style={{ display: 'flex', alignItems: 'center', padding: '32px 40px 0', gap: 24 }}>
+                {/* Header Stats Section */}
+                <div style={{ display: 'flex', alignItems: 'center', padding: '16px 40px 0', gap: 24 }}>
                     <img src="/assets/bull_premium_1771778168693.png" alt="Bull" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--accent-blue-glow))' }} />
 
                     <div style={{ flex: 1 }}>
@@ -134,13 +106,13 @@ export default function Dashboard() {
                                     ₹{stats.invested.toLocaleString()}
                                 </div>
                             </div>
-                            <div className="stat-card" style={{ borderLeft: `4px solid ${isGainTotal ? 'var(--success)' : 'var(--danger)'}`, background: '#0a0d14' }}>
+                            <div className="stat-card" style={{ borderLeft: `4px solid ${isGainTotal ? 'var(--success)' : 'var(--danger)'} `, background: '#0a0d14' }}>
                                 <div className="stat-label">Current Value</div>
                                 <div className="stat-value" style={{ color: isGainTotal ? 'var(--success)' : 'var(--danger)' }}>
                                     ₹{stats.current.toLocaleString()}
                                 </div>
                             </div>
-                            <div className="stat-card" style={{ borderLeft: `4px solid ${isGainTotal ? 'var(--success)' : 'var(--danger)'}`, background: '#0a0d14' }}>
+                            <div className="stat-card" style={{ borderLeft: `4px solid ${isGainTotal ? 'var(--success)' : 'var(--danger)'} `, background: '#0a0d14' }}>
                                 <div className="stat-label">Change</div>
                                 <div className="stat-value" style={{ display: 'flex', alignItems: 'center', gap: 8, color: isGainTotal ? 'var(--success)' : 'var(--danger)' }}>
                                     {isGainTotal ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
@@ -197,7 +169,7 @@ export default function Dashboard() {
                             <BarChart3 size={48} />
                             <h3 style={{ fontSize: 18, fontWeight: 600, color: 'var(--text-secondary)' }}>No companies found</h3>
                             <p>Try changing your filter or add a new IPO.</p>
-                            <button className="btn btn-primary" onClick={() => setShowAddIpo(true)}>
+                            <button className="btn btn-primary" onClick={() => { setEditingIpo(null); setShowIpoModal(true); }}>
                                 <Plus size={16} /> Add IPO
                             </button>
                         </div>
@@ -215,6 +187,10 @@ export default function Dashboard() {
                                                 key={ipo.id}
                                                 company={portfolioComp}
                                                 onDeleted={() => fetchData()}
+                                                onEdit={() => {
+                                                    setEditingIpo(ipo)
+                                                    setShowIpoModal(true)
+                                                }}
                                                 showToast={showToast}
                                             />
                                         )
@@ -248,8 +224,8 @@ export default function Dashboard() {
                                                 <td style={{ fontWeight: 600 }}>{ipo.company_name}</td>
                                                 <td><span className="badge badge-purple">{ipo.sector_name || '—'}</span></td>
                                                 <td style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{ipo.listed_on || '—'}</td>
-                                                <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.issue_price ? `₹${ipo.issue_price}` : '—'}</td>
-                                                <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.listing_price ? `₹${ipo.listing_price}` : '—'}</td>
+                                                <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.issue_price ? `₹${ipo.issue_price} ` : '—'}</td>
+                                                <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.listing_price ? `₹${ipo.listing_price} ` : '—'}</td>
                                                 <td>{ipo.issue_size || '—'}</td>
                                                 <td><span style={{ color: 'var(--accent-blue)', fontWeight: 600 }}>{ipo.qib_subscription || '—'}</span></td>
                                                 <td><span style={{ color: 'var(--accent-cyan)', fontWeight: 600 }}>{ipo.nii_subscription || '—'}</span></td>
@@ -273,11 +249,12 @@ export default function Dashboard() {
             </div>
 
             {/* Modals */}
-            {showAddIpo && (
-                <AddIpoModal
+            {showIpoModal && (
+                <IpoModal
                     sectors={sectors}
-                    onClose={() => setShowAddIpo(false)}
-                    onCreated={() => fetchData()}
+                    editingIpo={editingIpo}
+                    onClose={() => { setShowIpoModal(false); setEditingIpo(null); }}
+                    onSuccess={() => fetchData()}
                     showToast={showToast}
                 />
             )}

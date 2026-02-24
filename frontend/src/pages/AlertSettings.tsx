@@ -3,9 +3,10 @@ import { Link } from 'react-router-dom'
 import {
     ArrowLeft, Bell, Plus, Trash2, Pencil, Check, X, Shield, Building2, User, LogOut
 } from 'lucide-react'
-import { alertRulesApi, sectorsApi, AlertRule, Sector } from '../api'
+import { alertRulesApi, sectorsApi, iposApi, AlertRule, Sector, Ipo } from '../api'
 import { useAuth } from '../contexts/AuthContext'
 import Toast from '../components/Toast'
+import SearchHeader from '../components/SearchHeader'
 
 interface ToastState { message: string; type: 'success' | 'error' | 'info'; id: number }
 
@@ -37,8 +38,8 @@ function EditableRule({
             <div style={{ flex: 1, minWidth: 160 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)', marginBottom: 2 }}>
                     {rule.type === 'base' ? '🌐 Global Base Rule' : ''}
-                    {rule.type === 'sector' ? `🏭 ${rule.sector_name || 'Sector'}` : ''}
-                    {rule.type === 'company' ? `🏢 ${rule.company_name || 'Company'}` : ''}
+                    {rule.type === 'sector' ? `🏭 ${rule.sector_name || 'Sector'} ` : ''}
+                    {rule.type === 'company' ? `🏢 ${rule.company_name || 'Company'} ` : ''}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                     {rule.type === 'base' && 'Applies to all companies without a specific rule'}
@@ -89,13 +90,15 @@ function EditableRule({
 
 // ── Add Sector Rule Modal ──────────────────────────────────────────
 function AddSectorRuleModal({
-    sectors, onClose, onCreated
-}: { sectors: Sector[]; onClose: () => void; onCreated: () => void }) {
+    sectors, onClose, onCreated, existingRules
+}: { sectors: Sector[]; onClose: () => void; onCreated: () => void; existingRules: AlertRule[] }) {
     const [sectorId, setSectorId] = useState('')
     const [sectorName, setSectorName] = useState('')
     const [gain, setGain] = useState('15')
     const [loss, setLoss] = useState('-15')
     const [loading, setLoading] = useState(false)
+
+    const existingRef = existingRules.find(r => r.type === 'sector' && r.sector_id === sectorId)
 
     const handleCreate = async () => {
         if (!sectorId) return
@@ -120,11 +123,20 @@ function AddSectorRuleModal({
                         <select className="form-select" value={sectorId} onChange={e => {
                             setSectorId(e.target.value)
                             setSectorName(sectors.find(s => s.id === e.target.value)?.name || '')
+                            // Optional: Prefill with existing rule values if user wants that? 
+                            // User didn't ask for prefill, just warning.
                         }}>
                             <option value="">Select sector...</option>
                             {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                         </select>
                     </div>
+
+                    {existingRef && (
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,193,7,0.1)', border: '1px solid rgba(255,193,7,0.3)', borderRadius: 8, fontSize: 13, color: '#b8860b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Bell size={14} /> Rule already exists for {existingRef.sector_name}. Saving will update it.
+                        </div>
+                    )}
+
                     <div className="grid-2" style={{ gap: 12 }}>
                         <div className="form-group">
                             <label className="form-label" style={{ color: 'var(--success)' }}>Gain Threshold (%)</label>
@@ -149,12 +161,14 @@ function AddSectorRuleModal({
 
 // ── Add Company Rule Modal ────────────────────────────────────────
 function AddCompanyRuleModal({
-    onClose, onCreated
-}: { onClose: () => void; onCreated: () => void }) {
+    onClose, onCreated, existingRules, portfolioIpos
+}: { onClose: () => void; onCreated: () => void, existingRules: AlertRule[], portfolioIpos: Ipo[] }) {
     const [companyName, setCompanyName] = useState('')
     const [gain, setGain] = useState('15')
     const [loss, setLoss] = useState('-15')
     const [loading, setLoading] = useState(false)
+
+    const existingRef = existingRules.find(r => r.type === 'company' && r.company_name?.toLowerCase() === companyName.trim().toLowerCase())
 
     const handleCreate = async () => {
         if (!companyName.trim()) return
@@ -175,10 +189,24 @@ function AddCompanyRuleModal({
                 </div>
                 <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                     <div className="form-group">
-                        <label className="form-label">Company Name</label>
-                        <input className="form-input" placeholder="e.g. Tata Technologies" value={companyName}
-                            onChange={e => setCompanyName(e.target.value)} />
+                        <label className="form-label">Portfolio Company</label>
+                        <select className="form-select" value={companyName} onChange={e => setCompanyName(e.target.value)}>
+                            <option value="">Select company...</option>
+                            {portfolioIpos.map(ipo => (
+                                <option key={ipo.id} value={ipo.company_name}>{ipo.company_name}</option>
+                            ))}
+                        </select>
+                        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4 }}>
+                            Only portfolio companies can have specific alert overrides.
+                        </p>
                     </div>
+
+                    {existingRef && (
+                        <div style={{ padding: '10px 12px', background: 'rgba(255,193,7,0.1)', border: '1px solid rgba(255,193,7,0.3)', borderRadius: 8, fontSize: 13, color: '#b8860b', display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Bell size={14} /> Rule already exists for {existingRef.company_name}. Saving will update it.
+                        </div>
+                    )}
+
                     <div className="grid-2" style={{ gap: 12 }}>
                         <div className="form-group">
                             <label className="form-label" style={{ color: 'var(--success)' }}>Gain Threshold (%)</label>
@@ -206,6 +234,7 @@ export default function AlertSettings() {
     const { signOut } = useAuth()
     const [rules, setRules] = useState<AlertRule[]>([])
     const [sectors, setSectors] = useState<Sector[]>([])
+    const [portfolioIpos, setPortfolioIpos] = useState<Ipo[]>([])
     const [loading, setLoading] = useState(true)
     const [toast, setToast] = useState<ToastState | null>(null)
     const [showSectorModal, setShowSectorModal] = useState(false)
@@ -216,15 +245,20 @@ export default function AlertSettings() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [r, s] = await Promise.all([alertRulesApi.list(), sectorsApi.list()])
+            const [r, s, p] = await Promise.all([
+                alertRulesApi.list(),
+                sectorsApi.list(),
+                iposApi.list(true) // Get portfolio companies
+            ])
             // Sort: base first, then sector, then company
-            r.sort((a, b) => {
-                const order = { base: 0, sector: 1, company: 2 }
+            r.sort((a: AlertRule, b: AlertRule) => {
+                const order: Record<string, number> = { base: 0, sector: 1, company: 2 }
                 return (order[a.type] ?? 3) - (order[b.type] ?? 3)
             })
             setRules(r)
             setSectors(s)
-        } catch { showToast('Failed to load rules', 'error') }
+            setPortfolioIpos(p.sort((a: Ipo, b: Ipo) => a.company_name.localeCompare(b.company_name)))
+        } catch { showToast('Failed to load data', 'error') }
         finally { setLoading(false) }
     }, [])
 
@@ -263,24 +297,7 @@ export default function AlertSettings() {
         <div className="page">
             <div className="glow-bg" />
 
-            {/* Navbar */}
-            <nav className="navbar" style={{ height: 72 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <Link to="/" className="btn btn-secondary btn-sm" style={{ padding: '8px', background: '#000', borderColor: 'var(--border)' }}>
-                        <ArrowLeft size={20} color="var(--accent-blue)" />
-                    </Link>
-                    <img
-                        src="/assets/hoox_logo_premium_1771778134217.png"
-                        alt="Hoox"
-                        style={{ width: 44, height: 'auto' }}
-                    />
-                </div>
-                <div className="navbar-actions">
-                    <button className="btn btn-secondary btn-sm" onClick={signOut} title="Sign out" style={{ background: '#000', color: 'var(--danger)', borderColor: 'var(--border)', padding: '4px 8px' }}>
-                        <LogOut size={16} />
-                    </button>
-                </div>
-            </nav>
+            <SearchHeader showActions={false} />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="page-header">
@@ -405,10 +422,10 @@ export default function AlertSettings() {
             </div>
 
             {showSectorModal && (
-                <AddSectorRuleModal sectors={sectors} onClose={() => setShowSectorModal(false)} onCreated={fetchData} />
+                <AddSectorRuleModal sectors={sectors} onClose={() => setShowSectorModal(false)} onCreated={fetchData} existingRules={rules} />
             )}
             {showCompanyModal && (
-                <AddCompanyRuleModal onClose={() => setShowCompanyModal(false)} onCreated={fetchData} />
+                <AddCompanyRuleModal onClose={() => setShowCompanyModal(false)} onCreated={fetchData} existingRules={rules} portfolioIpos={portfolioIpos} />
             )}
 
             {toast && (
