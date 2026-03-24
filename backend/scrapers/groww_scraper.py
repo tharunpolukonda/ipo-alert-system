@@ -32,6 +32,58 @@ MONTH_MAP = {
 }
 
 
+import json
+
+def scrape_closed_ipos() -> list:
+    """
+    Scrape the list of closed IPOs from Groww.
+    Returns a list of dicts: [{company_name, search_id, groww_link, is_listed, ...}]
+    """
+    url = "https://groww.in/ipo/closed"
+    try:
+        log.info(f"Fetching closed IPOs from: {url}")
+        resp = requests.get(url, headers=HEADERS, timeout=30)
+        resp.raise_for_status()
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        script_tag = soup.find("script", id="__NEXT_DATA__")
+        if not script_tag:
+            log.error("Could not find __NEXT_DATA__ script tag")
+            return []
+
+        data = json.loads(script_tag.string)
+        # Navigate to the data list: props -> pageProps -> dataList
+        data_list = data.get("props", {}).get("pageProps", {}).get("dataList", [])
+        
+        results = []
+        for item in data_list:
+            # We only care about listed companies as per user request
+            if not item.get("isListed"):
+                continue
+                
+            search_id = item.get("searchId")
+            company_name = item.get("companyName", "")
+            
+            # Add "Ltd" if not present
+            if company_name and not (company_name.endswith("Ltd") or company_name.endswith("Limited")):
+                company_name = company_name.strip() + " Ltd"
+
+            results.append({
+                "company_name": company_name,
+                "search_id": search_id,
+                "groww_link": f"https://groww.in/ipo/{search_id}",
+                "is_sme": item.get("isSme", False),
+                "issue_price": str(item.get("issuePrice") or ""),
+                "listing_price": str(item.get("listingPrice") or ""),
+                "listed_on": str(item.get("listingTimestamp") or ""), # This is a timestamp, might need conversion
+                "overall_subscription": str(item.get("overallSubscription") or ""),
+            })
+            
+        return results
+    except Exception as e:
+        log.error(f"Error scraping closed IPOs: {e}")
+        return []
+
 def scrape_groww_ipo(url: str) -> dict:
     """
     Scrape IPO details from a Groww IPO page.
@@ -63,45 +115,40 @@ def scrape_groww_ipo(url: str) -> dict:
         soup = BeautifulSoup(resp.text, "html.parser")
 
         # ── 1. IPO Details grid ───────────────────────────────────────
-        # Each item: div[class*="ipoDetails_detailItem"]
-        #   -> child div.bodySmall (label)
-        #   -> child div.bodyBaseHeavy (value)
         ipo_details = {}
+        # The user provided a snippet with ipoDetails_detailItem__uFyIn
+        # We'll use a broader regex to match similar classes
         for item in soup.find_all("div", class_=re.compile(r"ipoDetails_detailItem")):
-            label_el = item.find("div", class_=re.compile(r"bodySmall"))
+            # Label is usually in bodySmall or contentSecondary
+            label_el = item.find("div", class_=re.compile(r"bodySmall|contentSecondary"))
+            # Value is usually in bodyBaseHeavy
             value_el = item.find("div", class_=re.compile(r"bodyBaseHeavy"))
+            
             if label_el and value_el:
-                label = label_el.get_text(strip=True)
+                label = label_el.get_text(strip=True).lower()
                 value = value_el.get_text(strip=True)
-                if label and value and label != "IPO document":
+                if label and value and label != "ipo document":
                     ipo_details[label] = value
 
-        log.info(f"IPO details: {ipo_details}")
+        log.info(f"IPO details keys found: {list(ipo_details.keys())}")
 
         # ── 2. Subscription rates ─────────────────────────────────────
-        # div[class*="subscription_row"] -> span.bodyBase (label) + span.bodyBaseHeavy (value)
         subscription = {}
         for row in soup.find_all("div", class_=re.compile(r"subscription_row__")):
             spans = row.find_all("span")
             if len(spans) >= 2:
-                label = spans[0].get_text(strip=True)
+                label = spans[0].get_text(strip=True).lower()
                 value = spans[-1].get_text(strip=True)
                 if label and value:
                     subscription[label] = value
 
-        # Total subscription (different class: subscription_totalRow)
         total_row = soup.find("div", class_=re.compile(r"subscription_totalRow"))
         if total_row:
             spans = total_row.find_all("span")
             if len(spans) >= 2:
-                subscription["Total"] = spans[-1].get_text(strip=True)
-
-        log.info(f"Subscription: {subscription}")
+                subscription["total"] = spans[-1].get_text(strip=True)
 
         # ── 3. Schedule (listing date) ────────────────────────────────
-        # div[class*="ipoSchedule_desktopStepContainer"]
-        #   -> span.bodyBase.contentSecondary (date)
-        #   -> span.bodyBaseHeavy (label like "Tentative listing date")
         schedule = {}
         for step in soup.find_all("div", class_=re.compile(r"ipoSchedule_desktopStepContainer")):
             info = step.find("div", class_=re.compile(r"ipoSchedule_stepInfoContainer"))
@@ -109,74 +156,59 @@ def scrape_groww_ipo(url: str) -> dict:
                 date_el = info.find("span", class_=re.compile(r"bodyBase"))
                 label_el = info.find("span", class_=re.compile(r"bodyBaseHeavy"))
                 if date_el and label_el:
-                    schedule[label_el.get_text(strip=True)] = date_el.get_text(strip=True)
-
-        log.info(f"Schedule: {schedule}")
+                    schedule[label_el.get_text(strip=True).lower()] = date_el.get_text(strip=True)
 
         # ── Map to result ─────────────────────────────────────────────
 
         # Listed On / Listing Date
-        for key in ["Tentative listing date", "Listing date", "Listed on", "Listing Date"]:
+        for key in ["tentative listing date", "listing date", "listed on"]:
             if key in schedule:
                 result["listed_on"] = _format_date(schedule[key])
                 break
+        if not result["listed_on"]:
+            if "listed on" in ipo_details:
+                result["listed_on"] = _format_date(ipo_details["listed on"])
 
-        # Issue Price (from "Price range" e.g. "₹674 - ₹708" → upper)
-        price_raw = ipo_details.get("Price range") or ipo_details.get("Issue Price")
+        # Issue Price
+        price_raw = ipo_details.get("price range") or ipo_details.get("issue price")
         if price_raw:
             nums = re.findall(r"[\d]+\.?\d*", price_raw.replace(",", ""))
             if nums:
                 result["issue_price"] = nums[-1]
 
-        # Listing Price
-        listing_raw = ipo_details.get("Listing Price") or ipo_details.get("List Price")
+        # Listing Price (be case-insensitive and check both places)
+        listing_raw = ipo_details.get("listing price") or ipo_details.get("list price")
         if listing_raw:
             nums = re.findall(r"[\d]+\.?\d*", listing_raw.replace(",", ""))
             if nums:
                 result["listing_price"] = nums[0]
 
-        # Issue Size (e.g. "8,750 Cr")
-        size_raw = ipo_details.get("Issue size") or ipo_details.get("Issue Size")
+        # Issue Size
+        size_raw = ipo_details.get("issue size")
         if size_raw:
             result["issue_size"] = size_raw.strip()
 
         # Subscription rates
         for key, val in subscription.items():
-            kl = key.lower()
-            if "qualified" in kl or "qib" in kl:
+            if "qualified" in key or "qib" in key:
                 result["qib_subscription"] = val
-            elif "non-institutional" in kl or "nii" in kl:
+            elif "non-institutional" in key or "nii" in key:
                 result["nii_subscription"] = val
-            elif "retail" in kl or "rii" in kl:
+            elif "retail" in key or "rii" in key:
                 result["rii_subscription"] = val
-            elif kl == "total":
+            elif key == "total":
                 result["total_subscription"] = val
 
-        # Warning for missing fields
-        missing = []
-        if not result["listed_on"]:
-            missing.append("listing date")
-        if not result["issue_price"]:
-            missing.append("issue price")
-        if not result["issue_size"]:
-            missing.append("issue size")
-
-        if len(missing) == 3 and not result["qib_subscription"]:
-            result["warning"] = (
-                "Could not auto-scrape any data from Groww. "
-                "The page structure may have changed — please fill in manually."
-            )
-        elif missing:
-            result["warning"] = f"Could not scrape: {', '.join(missing)}. Please fill in manually."
+        # Handle missing fields
+        missing = [k for k, v in result.items() if v is None and k not in ["success", "error", "warning"]]
+        if len(missing) > 5: # Arbitrary threshold
+             result["warning"] = "The page structure may have changed — please check the data."
 
         result["success"] = True
-        log.info(f"Final result: {result}")
-
     except Exception as e:
         log.error(f"Error scraping Groww: {e}", exc_info=True)
         result["error"] = str(e)
-        result["warning"] = f"Scraping failed: {e}. Please fill in manually."
-        result["success"] = True  # Let UI show step 2 for manual entry
+        result["success"] = True # Still success so UI proceeds to manual correction
 
     return result
 
@@ -186,6 +218,15 @@ def _format_date(raw: str) -> Optional[str]:
     if not raw:
         return None
     raw = raw.strip()
+    # Handle timestamps (from __NEXT_DATA__)
+    if raw.isdigit():
+        from datetime import datetime
+        try:
+            dt = datetime.fromtimestamp(int(raw) / 1000.0)
+            return dt.strftime("%d-%m-%Y")
+        except:
+            return raw
+            
     m = re.match(r"(\d{1,2})\s+([A-Za-z]{3})\s+[']?(\d{2,4})", raw)
     if m:
         day = m.group(1).zfill(2)

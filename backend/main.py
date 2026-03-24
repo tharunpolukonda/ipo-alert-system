@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from database import get_db
-from scrapers.groww_scraper import scrape_groww_ipo
+from scrapers.groww_scraper import scrape_groww_ipo, scrape_closed_ipos
 from scrapers.screener_scraper import StockScraper
 from alert_engine import check_alerts, calculate_pct
 from discord_notifier import send_discord_alert, send_cron_summary
@@ -104,6 +104,27 @@ class AlertRuleUpdate(BaseModel):
     sector_id: Optional[str] = None
     sector_name: Optional[str] = None
     company_name: Optional[str] = None
+
+class PendingIpoSubmit(BaseModel):
+    sector_id: Optional[str] = None
+    sector_name: Optional[str] = None
+    portfolio: bool = False
+    no_of_shares: Optional[float] = None
+    buy_price: Optional[float] = None
+    # Allow overrides for scraped fields
+    company_name: Optional[str] = None
+    listed_on: Optional[str] = None
+    issue_price: Optional[str] = None
+    listing_price: Optional[str] = None
+    issue_size: Optional[str] = None
+    qib_subscription: Optional[str] = None
+    nii_subscription: Optional[str] = None
+    rii_subscription: Optional[str] = None
+    total_subscription: Optional[str] = None
+
+class ThrowoutIpoCreate(BaseModel):
+    company_name: str
+    search_id: str
 
 
 # ═══════════════════════════════════════════════════════════
@@ -227,6 +248,157 @@ def get_cmp_bulk(body: dict):
     if not names:
         return []
     return scraper.scrape_multiple_stocks(names)
+
+
+# ═══════════════════════════════════════════════════════════
+# Automated IPO Scraping  (scoped to user)
+# ═══════════════════════════════════════════════════════════
+
+@app.post("/api/scrape/auto-fetch")
+def auto_fetch_ipos(x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    
+    # 1. Scrape the list from Groww
+    groww_list = scrape_closed_ipos()
+    if not groww_list:
+        return {"message": "No new IPOs found or scraping failed", "added": 0}
+        
+    # 2. Get existing data to prevent duplicates
+    existing_ipos = db.table("ipos").select("company_name").eq("user_id", user_id).execute().data
+    existing_pending = db.table("pending_ipo_additions").select("search_id").eq("user_id", user_id).execute().data
+    existing_throwouts = db.table("throwout_ipo_companies").select("search_id").eq("user_id", user_id).execute().data
+    
+    ipo_names = {i["company_name"].lower() for i in existing_ipos}
+    pending_ids = {p["search_id"] for p in existing_pending}
+    throwout_ids = {t["search_id"] for t in existing_throwouts}
+    
+    # 3. Filter and enrich
+    to_add = []
+    for item in groww_list:
+        if item["search_id"] in pending_ids or item["search_id"] in throwout_ids:
+            continue
+        if item["company_name"].lower() in ipo_names:
+            continue
+            
+        # Enrich with more details from the specific page
+        details = scrape_groww_ipo(item["groww_link"])
+        if details.get("success"):
+            # Update fields if scraped successfully
+            for field in ["listed_on", "issue_price", "listing_price", "issue_size", 
+                         "qib_subscription", "nii_subscription", "rii_subscription", "total_subscription"]:
+                if details.get(field):
+                    item[field] = details[field]
+        
+        item["user_id"] = user_id
+        to_add.append(item)
+        
+    if to_add:
+        # Filter keys to match DB schema
+        allowed_keys = {
+            "user_id", "company_name", "search_id", "groww_link", 
+            "listed_on", "issue_price", "listing_price", "issue_size",
+            "qib_subscription", "nii_subscription", "rii_subscription", "total_subscription"
+        }
+        cleaned_to_add = []
+        for item in to_add:
+            cleaned_to_add.append({k: v for k, v in item.items() if k in allowed_keys})
+            
+        db.table("pending_ipo_additions").insert(cleaned_to_add).execute()
+        
+    return {"message": f"Successfully fetched {len(to_add)} new IPOs", "added": len(to_add)}
+
+
+@app.get("/api/pending-ipos")
+def list_pending_ipos(x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    resp = db.table("pending_ipo_additions").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return resp.data
+
+
+@app.post("/api/pending-ipos/{pending_id}/submit")
+def submit_pending_ipo(pending_id: str, body: PendingIpoSubmit, x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    
+    # 1. Fetch pending data
+    pending = db.table("pending_ipo_additions").select("*").eq("id", pending_id).eq("user_id", user_id).execute()
+    if not pending.data:
+        raise HTTPException(status_code=404, detail="Pending IPO not found")
+    p = pending.data[0]
+    
+    # 2. Merge with user provided overrides
+    ipo_data = {
+        "user_id": user_id,
+        "company_name": body.company_name or p["company_name"],
+        "sector_id": body.sector_id,
+        "sector_name": body.sector_name,
+        "portfolio": body.portfolio,
+        "no_of_shares": body.no_of_shares,
+        "buy_price": body.buy_price,
+        "groww_link": p["groww_link"],
+        "listed_on": body.listed_on or p["listed_on"],
+        "issue_price": body.issue_price or p["issue_price"],
+        "listing_price": body.listing_price or p["listing_price"],
+        "issue_size": body.issue_size or p["issue_size"],
+        "qib_subscription": body.qib_subscription or p["qib_subscription"],
+        "nii_subscription": body.nii_subscription or p["nii_subscription"],
+        "rii_subscription": body.rii_subscription or p["rii_subscription"],
+        "total_subscription": body.total_subscription or p["total_subscription"],
+        "created_at": now_iso()
+    }
+    
+    # 3. Insert into main IPOS table
+    resp = db.table("ipos").insert(ipo_data).execute()
+    
+    # 4. Remove from pending table
+    db.table("pending_ipo_additions").delete().eq("id", pending_id).execute()
+    
+    return resp.data[0]
+
+
+@app.delete("/api/pending-ipos/{pending_id}")
+def delete_pending_ipo(pending_id: str, x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    db.table("pending_ipo_additions").delete().eq("id", pending_id).eq("user_id", user_id).execute()
+    return {"message": "Pending IPO removed"}
+
+
+# ═══════════════════════════════════════════════════════════
+# Throwout IPOs  (scoped to user)
+# ═══════════════════════════════════════════════════════════
+
+@app.get("/api/throwout-ipos")
+def list_throwout_ipos(x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    resp = db.table("throwout_ipo_companies").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+    return resp.data
+
+
+@app.post("/api/throwout-ipos")
+def create_throwout_ipo(body: ThrowoutIpoCreate, x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    data = body.model_dump()
+    data["user_id"] = user_id
+    data["created_at"] = now_iso()
+    resp = db.table("throwout_ipo_companies").insert(data).execute()
+    
+    # If it was in pending, remove it
+    db.table("pending_ipo_additions").delete().eq("search_id", body.search_id).eq("user_id", user_id).execute()
+    
+    return resp.data[0]
+
+
+@app.post("/api/throwout-ipos/{throwout_id}/restore")
+def restore_throwout_ipo(throwout_id: str, x_user_id: Optional[str] = Header(None)):
+    user_id = require_user(x_user_id)
+    db = get_db()
+    db.table("throwout_ipo_companies").delete().eq("id", throwout_id).eq("user_id", user_id).execute()
+    return {"message": "IPO restored from throwout list"}
 
 
 # ═══════════════════════════════════════════════════════════
@@ -367,22 +539,24 @@ def portfolio_summary(x_user_id: Optional[str] = Header(None)):
     cmp_map = {r["company_name"]: r["price"] for r in cmp_results if r.get("price")}
 
     companies = []
-    total_invested = 0.0
-    total_current_value = 0.0
+    invested_vals = []
+    current_vals = []
 
     for ipo in portfolio_ipos:
         name = ipo["company_name"]
-        shares = float(ipo.get("no_of_shares") or 0)
-        buy_price = float(ipo.get("buy_price") or 0)
+        raw_shares = ipo.get("no_of_shares")
+        raw_buy = ipo.get("buy_price")
+        shares = float(raw_shares) if raw_shares else 0.0
+        buy_price = float(raw_buy) if raw_buy else 0.0
         cmp = cmp_map.get(name)
 
         invested = shares * buy_price
-        current_val = (shares * cmp) if cmp else None
-        pct_change = calculate_pct(cmp, buy_price) if (cmp and buy_price) else None
+        current_val = (shares * cmp) if cmp is not None else None
+        pct_change = calculate_pct(cmp, buy_price) if (cmp is not None and buy_price > 0) else None
 
-        total_invested += invested
+        invested_vals.append(invested)
         if current_val is not None:
-            total_current_value += current_val
+            current_vals.append(current_val)
 
         companies.append({
             "id": ipo["id"],
@@ -400,11 +574,13 @@ def portfolio_summary(x_user_id: Optional[str] = Header(None)):
             "listed_on": ipo.get("listed_on"),
         })
 
-    total_pct = calculate_pct(total_current_value, total_invested) if total_invested else 0
+    total_invested = sum(invested_vals)
+    total_current_value = sum(current_vals)
+    total_pct = calculate_pct(total_current_value, total_invested) if total_invested > 0 else 0
 
     return {
         "companies": companies,
         "total_invested": round(total_invested, 2),
         "total_current_value": round(total_current_value, 2),
-        "total_pct_change": round(total_pct, 2) if total_pct else 0,
+        "total_pct_change": round(total_pct, 2)
     }

@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, TrendingUp, TrendingDown, Filter, LayoutGrid, List as ListIcon } from 'lucide-react'
-import { iposApi, sectorsApi, portfolioApi, Ipo, Sector, PortfolioCompany } from '../api'
+import { TrendingUp, TrendingDown, Filter, LayoutGrid } from 'lucide-react'
+import { iposApi, portfolioApi, Ipo, PortfolioCompany } from '../api'
+import { useGlobal } from '../contexts/GlobalContext'
 import SearchHeader from '../components/SearchHeader'
 
 export default function ProfitedLostedPage() {
+    const { sectors } = useGlobal()
     const [allIpos, setAllIpos] = useState<Ipo[]>([])
-    const [sectors, setSectors] = useState<Sector[]>([])
     const [portfolio, setPortfolio] = useState<PortfolioCompany[]>([])
     const [loading, setLoading] = useState(true)
 
@@ -17,12 +17,10 @@ export default function ProfitedLostedPage() {
 
     const fetchData = useCallback(async () => {
         try {
-            const [secs, summary, all] = await Promise.all([
-                sectorsApi.list(),
+            const [summary, all] = await Promise.all([
                 portfolioApi.summary(),
                 iposApi.list(),
             ])
-            setSectors(secs || [])
             setPortfolio(summary?.companies || [])
             setAllIpos(all || [])
         } catch (err) {
@@ -37,13 +35,6 @@ export default function ProfitedLostedPage() {
     // ── Calculate Gain/Loss for a company ──────────────────────────
     const getChangeData = (item: Ipo | PortfolioCompany) => {
         const issuePrice = 'issue_price' in item ? parseFloat(item.issue_price || '0') : item.buy_price
-        const cmp = 'cmp' in item ? (item.cmp || 0) : 0 // We might need to fetch CMP for non-portfolio items, 
-        // but usually the list view uses stored listing_price if listed.
-
-        // The user mentioned sorting by % change relative to %IP.
-        // We'll use (CMP - Issue Price) / Issue Price if CMP is available.
-        // If not, we use (Listing Price - Issue Price) / Issue Price as a historical profit measure.
-
         const listingPrice = parseFloat(item.listing_price || '0')
         const currentPrice = ('cmp' in item && item.cmp) ? item.cmp : listingPrice
 
@@ -87,7 +78,7 @@ export default function ProfitedLostedPage() {
         <div className="page">
             <div className="glow-bg" />
 
-            <SearchHeader showActions={false} />
+            <SearchHeader />
 
             <div style={{ display: 'flex', gap: 12, padding: '16px 20px', background: 'rgba(15, 20, 32, 0.5)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#000', padding: '4px 12px', borderRadius: 10, border: '1px solid var(--border)', flex: '1 1 160px' }}>

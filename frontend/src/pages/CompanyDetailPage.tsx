@@ -4,41 +4,33 @@ import {
     ArrowLeft, TrendingUp, TrendingDown, Calendar, DollarSign, Building2,
     BarChart3, Globe, Trash2, Pencil, ShieldCheck, Info, Plus
 } from 'lucide-react'
-import { iposApi, portfolioApi, sectorsApi, scrapeApi, PortfolioCompany, Sector, Ipo } from '../api'
+import { iposApi, portfolioApi, scrapeApi, PortfolioCompany, Ipo } from '../api'
+import { useGlobal } from '../contexts/GlobalContext'
 import SearchHeader from '../components/SearchHeader'
-import IpoModal from '../components/IpoModal'
 import DeleteConfirmationModal from '../components/DeleteConfirmationModal'
-import Toast from '../components/Toast'
-
-interface ToastState {
-    message: string
-    type: 'success' | 'error' | 'info'
-    id: number
-}
 
 export default function CompanyDetailPage() {
     const { id, searchQuery } = useParams<{ id?: string, searchQuery?: string }>()
     const navigate = useNavigate()
+    const {
+        sectors,
+        setShowIpoModal,
+        setEditingIpo,
+        showToast
+    } = useGlobal()
+
     const [company, setCompany] = useState<PortfolioCompany | null>(null)
-    const [sectors, setSectors] = useState<Sector[]>([])
     const [loading, setLoading] = useState(true)
-    const [showIpoModal, setShowIpoModal] = useState(false)
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
     const [deleting, setDeleting] = useState(false)
-    const [toast, setToast] = useState<ToastState | null>(null)
-
-    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-        setToast({ message, type, id: Date.now() })
-    }
 
     const fetchData = useCallback(async () => {
         if (!id && !searchQuery) return
         setLoading(true)
         try {
-            const [allIpos, summary, secs] = await Promise.all([
+            const [allIpos, summary] = await Promise.all([
                 iposApi.list(),
-                portfolioApi.summary(),
-                sectorsApi.list()
+                portfolioApi.summary()
             ])
 
             const slugify = (text: string) => text.trim().replace(/\s+/g, '-')
@@ -95,17 +87,23 @@ export default function CompanyDetailPage() {
             }
 
             setCompany(mergedComp)
-            setSectors(secs)
         } catch (e) {
             console.error(e)
             showToast('Failed to load company details', 'error')
         } finally {
             setLoading(false)
         }
-    }, [id, searchQuery, navigate])
+    }, [id, searchQuery, navigate, showToast])
 
     useEffect(() => {
         fetchData()
+    }, [fetchData])
+
+    // Listen for global updates
+    useEffect(() => {
+        const handleUpdate = () => fetchData()
+        window.addEventListener('ipo-updated', handleUpdate)
+        return () => window.removeEventListener('ipo-updated', handleUpdate)
     }, [fetchData])
 
     const handleDelete = async () => {
@@ -140,7 +138,7 @@ export default function CompanyDetailPage() {
         <div className="page">
             <div className="glow-bg" />
 
-            <SearchHeader showActions={false} />
+            <SearchHeader />
 
             <div className="page-content">
                 <Link to="/" className="btn btn-ghost btn-sm" style={{ marginBottom: 24, gap: 8, paddingLeft: 0 }}>
@@ -179,7 +177,7 @@ export default function CompanyDetailPage() {
                     </div>
 
                     <div style={{ display: 'flex', gap: 12 }}>
-                        <button className="btn btn-secondary" onClick={() => setShowIpoModal(true)}>
+                        <button className="btn btn-secondary" onClick={() => { setEditingIpo(company as unknown as Ipo); setShowIpoModal(true); }}>
                             <Pencil size={18} /> Edit IPO
                         </button>
                         <button className="btn btn-danger" onClick={() => setShowDeleteConfirm(true)}>
@@ -280,7 +278,7 @@ export default function CompanyDetailPage() {
                         ) : (
                             <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)' }}>
                                 <p style={{ fontSize: 14, marginBottom: 20 }}>You haven't added this company to your portfolio yet.</p>
-                                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setShowIpoModal(true)}>
+                                <button className="btn btn-secondary" style={{ width: '100%' }} onClick={() => { setEditingIpo(company as unknown as Ipo); setShowIpoModal(true); }}>
                                     <Plus size={16} /> Add to Portfolio
                                 </button>
                             </div>
@@ -289,16 +287,6 @@ export default function CompanyDetailPage() {
                 </div>
             </div>
 
-            {showIpoModal && (
-                <IpoModal
-                    sectors={sectors}
-                    editingIpo={company as unknown as Ipo}
-                    onClose={() => setShowIpoModal(false)}
-                    onSuccess={fetchData}
-                    showToast={showToast}
-                />
-            )}
-
             {showDeleteConfirm && (
                 <DeleteConfirmationModal
                     title="Remove Tracking"
@@ -306,15 +294,6 @@ export default function CompanyDetailPage() {
                     onConfirm={handleDelete}
                     onCancel={() => setShowDeleteConfirm(false)}
                     loading={deleting}
-                />
-            )}
-
-            {toast && (
-                <Toast
-                    key={toast.id}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
                 />
             )}
         </div>

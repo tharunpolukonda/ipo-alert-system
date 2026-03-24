@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
 import {
-    ArrowLeft, Bell, Plus, Trash2, Pencil, Check, X, Shield, Building2, User, LogOut
+    Bell, Plus, Trash2, Pencil, Check, X, Shield, Building2, User
 } from 'lucide-react'
-import { alertRulesApi, sectorsApi, iposApi, AlertRule, Sector, Ipo } from '../api'
-import { useAuth } from '../contexts/AuthContext'
-import Toast from '../components/Toast'
+import { alertRulesApi, iposApi, AlertRule, Ipo } from '../api'
+import { useGlobal } from '../contexts/GlobalContext'
 import SearchHeader from '../components/SearchHeader'
-
-interface ToastState { message: string; type: 'success' | 'error' | 'info'; id: number }
 
 function EditableRule({
     rule, onUpdate, onDelete
@@ -88,10 +84,10 @@ function EditableRule({
     )
 }
 
-// ── Add Sector Rule Modal ──────────────────────────────────────────
 function AddSectorRuleModal({
-    sectors, onClose, onCreated, existingRules
-}: { sectors: Sector[]; onClose: () => void; onCreated: () => void; existingRules: AlertRule[] }) {
+    onClose, onCreated, existingRules
+}: { onClose: () => void; onCreated: () => void; existingRules: AlertRule[] }) {
+    const { sectors } = useGlobal()
     const [sectorId, setSectorId] = useState('')
     const [sectorName, setSectorName] = useState('')
     const [gain, setGain] = useState('15')
@@ -123,8 +119,6 @@ function AddSectorRuleModal({
                         <select className="form-select" value={sectorId} onChange={e => {
                             setSectorId(e.target.value)
                             setSectorName(sectors.find(s => s.id === e.target.value)?.name || '')
-                            // Optional: Prefill with existing rule values if user wants that? 
-                            // User didn't ask for prefill, just warning.
                         }}>
                             <option value="">Select sector...</option>
                             {sectors.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -159,7 +153,6 @@ function AddSectorRuleModal({
     )
 }
 
-// ── Add Company Rule Modal ────────────────────────────────────────
 function AddCompanyRuleModal({
     onClose, onCreated, existingRules, portfolioIpos
 }: { onClose: () => void; onCreated: () => void, existingRules: AlertRule[], portfolioIpos: Ipo[] }) {
@@ -229,25 +222,18 @@ function AddCompanyRuleModal({
     )
 }
 
-// ══ Main AlertSettings page ═══════════════════════════════════════
 export default function AlertSettings() {
-    const { signOut } = useAuth()
+    const { showToast } = useGlobal()
     const [rules, setRules] = useState<AlertRule[]>([])
-    const [sectors, setSectors] = useState<Sector[]>([])
     const [portfolioIpos, setPortfolioIpos] = useState<Ipo[]>([])
     const [loading, setLoading] = useState(true)
-    const [toast, setToast] = useState<ToastState | null>(null)
     const [showSectorModal, setShowSectorModal] = useState(false)
     const [showCompanyModal, setShowCompanyModal] = useState(false)
 
-    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') =>
-        setToast({ message, type, id: Date.now() })
-
     const fetchData = useCallback(async () => {
         try {
-            const [r, s, p] = await Promise.all([
+            const [r, p] = await Promise.all([
                 alertRulesApi.list(),
-                sectorsApi.list(),
                 iposApi.list(true) // Get portfolio companies
             ])
             // Sort: base first, then sector, then company
@@ -256,11 +242,10 @@ export default function AlertSettings() {
                 return (order[a.type] ?? 3) - (order[b.type] ?? 3)
             })
             setRules(r)
-            setSectors(s)
             setPortfolioIpos(p.sort((a: Ipo, b: Ipo) => a.company_name.localeCompare(b.company_name)))
         } catch { showToast('Failed to load data', 'error') }
         finally { setLoading(false) }
-    }, [])
+    }, [showToast])
 
     useEffect(() => { fetchData() }, [fetchData])
 
@@ -297,7 +282,7 @@ export default function AlertSettings() {
         <div className="page">
             <div className="glow-bg" />
 
-            <SearchHeader showActions={false} />
+            <SearchHeader />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
                 <div className="page-header" style={{ padding: '24px 20px 0' }}>
@@ -421,14 +406,10 @@ export default function AlertSettings() {
             </div>
 
             {showSectorModal && (
-                <AddSectorRuleModal sectors={sectors} onClose={() => setShowSectorModal(false)} onCreated={fetchData} existingRules={rules} />
+                <AddSectorRuleModal onClose={() => setShowSectorModal(false)} onCreated={fetchData} existingRules={rules} />
             )}
             {showCompanyModal && (
                 <AddCompanyRuleModal onClose={() => setShowCompanyModal(false)} onCreated={fetchData} existingRules={rules} portfolioIpos={portfolioIpos} />
-            )}
-
-            {toast && (
-                <Toast key={toast.id} message={toast.message} type={toast.type} onClose={() => setToast(null)} />
             )}
         </div>
     )

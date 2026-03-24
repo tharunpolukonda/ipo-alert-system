@@ -45,6 +45,18 @@ export interface Ipo {
     created_at: string
 }
 
+export interface PendingIpo extends Ipo {
+    search_id: string
+}
+
+export interface ThrowoutIpo {
+    id: string
+    user_id: string
+    company_name: string
+    search_id: string
+    created_at: string
+}
+
 export interface AlertRule {
     id: string
     user_id?: string
@@ -141,4 +153,14 @@ export const alertRulesApi = {
 
 export const portfolioApi = {
     summary: () => api.get<PortfolioSummary>('/api/portfolio/summary').then(r => r.data),
+}
+
+export const automationApi = {
+    autoFetch: () => api.post<{ message: string, added: number }>('/api/scrape/auto-fetch').then(r => r.data),
+    listPending: () => api.get<PendingIpo[]>('/api/pending-ipos').then(r => r.data),
+    submitPending: (id: string, data: Partial<Ipo>) => api.post<Ipo>(`/api/pending-ipos/${id}/submit`, data).then(r => r.data),
+    deletePending: (id: string) => api.delete(`/api/pending-ipos/${id}`).then(r => r.data),
+    listThrowout: () => api.get<ThrowoutIpo[]>('/api/throwout-ipos').then(r => r.data),
+    createThrowout: (data: { company_name: string, search_id: string }) => api.post<ThrowoutIpo>('/api/throwout-ipos', data).then(r => r.data),
+    restoreThrowout: (id: string) => api.post(`/api/throwout-ipos/${id}/restore`).then(r => r.data),
 }

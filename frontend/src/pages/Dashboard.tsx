@@ -1,48 +1,42 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Link } from 'react-router-dom'
-import { Plus, Tag, Bell, RefreshCw, TrendingUp, TrendingDown, BarChart3, LogOut, User } from 'lucide-react'
-import { sectorsApi, portfolioApi, iposApi, Sector, PortfolioSummary, Ipo } from '../api'
+import { Link, useNavigate } from 'react-router-dom'
+import { Plus, BarChart3, TrendingUp, TrendingDown, Pencil, Trash2 } from 'lucide-react'
+import { portfolioApi, iposApi, setApiUserId, PortfolioSummary, Ipo } from '../api'
 import { useAuth } from '../contexts/AuthContext'
+import { useGlobal } from '../contexts/GlobalContext'
 import CompanyCard from '../components/CompanyCard'
-import IpoModal from '../components/IpoModal'
-import AddSectorModal from '../components/AddSectorModal'
-import Toast from '../components/Toast'
 import SearchHeader from '../components/SearchHeader'
 
-interface ToastState {
-    message: string
-    type: 'success' | 'error' | 'info'
-    id: number
-}
-
 export default function Dashboard() {
-    const { userId, username, signOut } = useAuth()
-    const [sectors, setSectors] = useState<Sector[]>([])
+    const navigate = useNavigate()
+    const { userId } = useAuth()
+    const {
+        sectors,
+        setShowIpoModal,
+        setEditingIpo,
+        setShowAddSectorModal,
+        showToast
+    } = useGlobal()
+
     const [portfolio, setPortfolio] = useState<PortfolioSummary | null>(null)
     const [allIpos, setAllIpos] = useState<Ipo[]>([])
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
-    const [showIpoModal, setShowIpoModal] = useState(false)
-    const [editingIpo, setEditingIpo] = useState<Ipo | null>(null)
-    const [showAddSector, setShowAddSector] = useState(false)
-    const [toast, setToast] = useState<ToastState | null>(null)
-    const [selectedSector, setSelectedSector] = useState<string>('all-portfolio') // 'all-portfolio', 'all-ipos', or sector ID
+    const [selectedSector, setSelectedSector] = useState<string>('all-portfolio')
 
     // Attach user ID to all backend requests
-
-    const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-        setToast({ message, type, id: Date.now() })
-    }
+    useEffect(() => {
+        setApiUserId(userId)
+    }, [userId])
 
     const fetchData = useCallback(async (isRefresh = false) => {
+        if (!userId) return
         if (isRefresh) setRefreshing(true)
         try {
-            const [secs, summary, all] = await Promise.all([
-                sectorsApi.list(),
+            const [summary, all] = await Promise.all([
                 portfolioApi.summary(),
                 iposApi.list(),
             ])
-            setSectors(secs)
             setPortfolio(summary)
             setAllIpos(all)
         } catch {
@@ -51,9 +45,16 @@ export default function Dashboard() {
             setLoading(false)
             setRefreshing(false)
         }
-    }, [])
+    }, [userId, showToast])
 
     useEffect(() => { fetchData() }, [fetchData])
+
+    // Listen for global updates (from sidebar actions or modals in Layout)
+    useEffect(() => {
+        const handleUpdate = () => fetchData()
+        window.addEventListener('ipo-updated', handleUpdate)
+        return () => window.removeEventListener('ipo-updated', handleUpdate)
+    }, [fetchData])
 
     // ── Sector Filtering Logic ──────────────────────────────────────
     const filteredIpos = allIpos.filter(ipo => {
@@ -88,13 +89,9 @@ export default function Dashboard() {
             <SearchHeader
                 onRefresh={() => fetchData(true)}
                 refreshing={refreshing}
-                onAddIpo={() => { setEditingIpo(null); setShowIpoModal(true); }}
-                onAddSector={() => setShowAddSector(true)}
             />
 
             <div style={{ position: 'relative', zIndex: 1 }}>
-                {/* Header Stats Section */}
-                {/* Header Stats Section */}
                 <div className="stat-card-row" style={{ display: 'flex', alignItems: 'center', padding: '16px 40px 0', gap: 24 }}>
                     <img src="/assets/bull_premium_1771778168693.png" alt="Bull" className="mobile-hide" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--accent-blue-glow))' }} />
 
@@ -125,7 +122,6 @@ export default function Dashboard() {
                     <img src="/assets/bear_blue_premium_1771777968054.png" alt="Bear" className="mobile-hide" style={{ width: 140, height: 'auto', filter: 'drop-shadow(0 0 20px var(--danger-bg))' }} />
                 </div>
 
-                {/* Filter Header */}
                 <div className="page-header" style={{ paddingTop: 32 }}>
                     <div>
                         <h1 className="page-title">
@@ -175,7 +171,6 @@ export default function Dashboard() {
                         </div>
                     ) : (
                         selectedSector === 'all-portfolio' || (selectedSector !== 'all-ipos' && sectors.find(s => s.id === selectedSector)) ? (
-                            /* Sector-specific or Portfolio View (Card Grid) */
                             <div className="grid-auto">
                                 {filteredIpos.map(ipo => {
                                     const portfolioComp = portfolio?.companies?.find(c => c.id === ipo.id)
@@ -197,7 +192,6 @@ export default function Dashboard() {
                                 })}
                             </div>
                         ) : (
-                            /* All IPOs View (Table) */
                             <div className="table-container">
                                 <table className="data-table">
                                     <thead>
@@ -213,12 +207,17 @@ export default function Dashboard() {
                                             <th>RII</th>
                                             <th>Total</th>
                                             <th>Portfolio</th>
+                                            <th style={{ textAlign: 'right' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {filteredIpos.map(ipo => (
                                             <tr key={ipo.id}>
-                                                <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>{ipo.company_name}</td>
+                                                <td style={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                                                    <Link to={`/search/${ipo.company_name.replace(/\s+/g, '-')}`} style={{ color: 'inherit', textDecoration: 'none' }} className="hover-link">
+                                                        {ipo.company_name}
+                                                    </Link>
+                                                </td>
                                                 <td><span className="badge badge-purple">{ipo.sector_name || '—'}</span></td>
                                                 <td className="mobile-hide" style={{ color: 'var(--text-secondary)', fontSize: 13, whiteSpace: 'nowrap' }}>{ipo.listed_on || '—'}</td>
                                                 <td style={{ fontFamily: 'JetBrains Mono, monospace' }}>{ipo.issue_price ? `₹${ipo.issue_price} ` : '—'}</td>
@@ -235,6 +234,40 @@ export default function Dashboard() {
                                                         <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: 'var(--text-muted)' }}>No</span>
                                                     )}
                                                 </td>
+                                                <td style={{ textAlign: 'right' }}>
+                                                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                                                        <button
+                                                            className="btn btn-ghost btn-icon btn-sm"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingIpo(ipo);
+                                                                setShowIpoModal(true);
+                                                            }}
+                                                            title="Edit"
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-ghost btn-icon btn-sm"
+                                                            style={{ color: 'var(--danger)' }}
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                if (window.confirm(`Are you sure you want to delete ${ipo.company_name}?`)) {
+                                                                    try {
+                                                                        await iposApi.delete(ipo.id);
+                                                                        showToast('IPO deleted', 'success');
+                                                                        fetchData();
+                                                                    } catch {
+                                                                        showToast('Failed to delete IPO', 'error');
+                                                                    }
+                                                                }
+                                                            }}
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -244,36 +277,6 @@ export default function Dashboard() {
                     )}
                 </div>
             </div>
-
-            {/* Modals */}
-            {showIpoModal && (
-                <IpoModal
-                    sectors={sectors}
-                    editingIpo={editingIpo}
-                    onClose={() => { setShowIpoModal(false); setEditingIpo(null); }}
-                    onSuccess={() => fetchData()}
-                    showToast={showToast}
-                />
-            )}
-            {showAddSector && (
-                <AddSectorModal
-                    onClose={() => setShowAddSector(false)}
-                    onCreated={() => {
-                        sectorsApi.list().then(setSectors)
-                        showToast('Sector added!', 'success')
-                    }}
-                />
-            )}
-
-            {/* Toast */}
-            {toast && (
-                <Toast
-                    key={toast.id}
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
-                />
-            )}
         </div>
     )
 }
